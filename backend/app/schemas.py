@@ -239,7 +239,7 @@ class DuplicateDetectionResponse(BaseModel):
 class OllamaFileSuggestion(BaseModel):
     """Raw suggestion item produced by local Ollama model."""
 
-    file_id: str = Field(..., description="Unique file identifier or relative path")
+    file_id: Optional[str] = Field(None, description="Unique file identifier or relative path")
     current_relative_path: Optional[str] = Field(None, description="Current relative path of the file")
     category: str = Field(..., description="Suggested organizational category (e.g. 'Documents/Invoices')")
     proposed_filename: Optional[str] = Field(None, description="Suggested clean filename including original extension")
@@ -269,11 +269,15 @@ class SuggestionItem(BaseModel):
     """Deterministically validated suggestion for a single file."""
 
     file_id: str = Field(..., description="Unique file identifier or current relative path")
+    root_id: str = Field("", description="Approved root identifier")
+    original_filename: str = Field("", description="Original filename without path")
+    original_absolute_path: str = Field("", description="Canonical source absolute path on disk")
     current_relative_path: str = Field(..., description="Existing relative path (forward slashes)")
     category: str = Field(..., description="Validated organizational category")
     proposed_filename: str = Field(..., description="Validated clean filename")
     proposed_subfolder: str = Field(..., description="Validated relative destination subfolder (forward slashes)")
     proposed_relative_path: str = Field(..., description="Full proposed relative path (folder + filename)")
+    destination_absolute_path: str = Field("", description="Resolved destination absolute path within approved root")
     rationale: str = Field(..., description="Rationale for suggestion")
     confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score")
     is_ambiguous: bool = Field(False, description="Flagged for user review due to low confidence or collisions")
@@ -281,6 +285,8 @@ class SuggestionItem(BaseModel):
     collision_details: Optional[str] = Field(None, description="Details if collision detected")
     is_valid: bool = Field(True, description="Whether model suggestion passed deterministic validation")
     validation_error: Optional[str] = Field(None, description="Error reason if validation failed")
+    validation_status: str = Field("valid", description="Status: 'valid', 'collision', 'invalid', 'no_change'")
+    operation_type: str = Field("none", description="Operation classification: 'move', 'rename', 'organize', 'none'")
 
 
 class SuggestionSummary(BaseModel):
@@ -317,6 +323,26 @@ class SuggestionBatchResponse(BaseModel):
     summary: SuggestionSummary = Field(..., description="Statistical summary")
     suggestions: List[SuggestionItem] = Field(default_factory=list, description="Validated suggestions")
     warnings: List[SuggestionWarning] = Field(default_factory=list, description="Structured warnings")
+
+
+class SuggestionStageRequest(BaseModel):
+    """Request schema for validating and staging accepted suggestions into operations queue."""
+
+    root_id: str = Field(..., description="ID of approved root")
+    suggestions: List[SuggestionItem] = Field(default_factory=list, description="Suggestions to stage")
+    decisions: Dict[str, str] = Field(default_factory=dict, description="Map of file_id to 'accepted' or 'rejected'")
+    edits: Optional[Dict[str, Dict[str, str]]] = Field(None, description="Optional custom filename/subfolder edits")
+
+
+class SuggestionStageResponse(BaseModel):
+    """Response report after staging accepted suggestions."""
+
+    operations: List[OperationPlanItem] = Field(default_factory=list, description="Staged operation plan items")
+    counts: Dict[str, int] = Field(default_factory=dict, description="Summary counts of staged, skipped, and invalid")
+    notice: str = Field(
+        "STAGED OPERATIONS: File mutations have been placed in review queue. No files have been modified on disk.",
+        description="Mandatory read-only notice",
+    )
 
 
 # ==============================================================================

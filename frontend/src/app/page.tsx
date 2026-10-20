@@ -55,6 +55,7 @@ import {
   executeScan,
   executeDuplicateDetection,
   executeSuggestions,
+  stageSuggestions,
   testOllamaInference,
   executeDryRun,
   executeApplyOperations,
@@ -141,6 +142,7 @@ export default function Home() {
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
   const [tempEditFilename, setTempEditFilename] = useState<string>("");
   const [tempEditSubfolder, setTempEditSubfolder] = useState<string>("");
+  const [stagingNotice, setStagingNotice] = useState<string | null>(null);
 
   // Review & Operations State
   const [stagedPlan, setStagedPlan] = useState<OperationPlanItem[]>([]);
@@ -328,40 +330,61 @@ export default function Home() {
   }, [selectedRoot, suggestionMaxFiles, suggestionConfidenceThreshold]);
 
   // Stage accepted suggestions into Operations Queue
-  const handleStageAccepted = useCallback(() => {
-    if (!suggestionResult) return;
+  const handleStageAccepted = useCallback(async () => {
+    if (!suggestionResult || !selectedRoot) return;
 
-    const newOperations: OperationPlanItem[] = [];
-    suggestionResult.suggestions.forEach((item) => {
-      const decision = userDecisions[item.file_id];
-      if (decision === "accepted") {
-        const customEdit = userEdits[item.file_id];
-        const targetFilename = customEdit?.proposed_filename || item.proposed_filename;
-        const targetSubfolder = customEdit?.proposed_subfolder || item.proposed_subfolder;
+    setError(null);
+    setStagingNotice(null);
 
-        const cleanSubfolder = targetSubfolder.replace(/^[\\/]+|[\\/]+$/g, "");
-        const targetRelPath = cleanSubfolder
-          ? `${cleanSubfolder}/${targetFilename}`
-          : targetFilename;
+    try {
+      const res = await stageSuggestions({
+        root_id: selectedRoot.id,
+        suggestions: suggestionResult.suggestions,
+        decisions: userDecisions,
+        edits: userEdits,
+      });
 
-        newOperations.push({
-          source_rel_path: item.current_relative_path,
-          target_rel_path: targetRelPath,
-          operation_type: "move",
-          approved: true,
-        });
+      if (res.operations.length === 0) {
+        if (res.counts.skipped_no_change > 0 && res.counts.skipped_invalid === 0 && res.counts.skipped_collision === 0) {
+          setError(
+            `No operations to stage: ${res.counts.skipped_no_change} accepted item(s) have identical source and destination paths (no change to apply).`
+          );
+        } else if (res.counts.skipped_invalid > 0 || res.counts.skipped_collision > 0) {
+          setError(
+            `No valid operations staged. ${res.counts.skipped_invalid + res.counts.skipped_collision} invalid/colliding and ${res.counts.skipped_no_change} unchanged suggestions were skipped.`
+          );
+        } else {
+          setError("No accepted suggestions selected to stage. Please accept at least one proposal.");
+        }
+        return;
       }
-    });
 
-    if (newOperations.length === 0) {
-      setError("No accepted suggestions to stage.");
-      return;
+      setStagedPlan(res.operations);
+      setDryRunResult(null);
+
+      const parts = [];
+      if (res.counts.skipped_no_change > 0) {
+        parts.push(`${res.counts.skipped_no_change} unchanged skipped`);
+      }
+      if (res.counts.skipped_invalid > 0) {
+        parts.push(`${res.counts.skipped_invalid} invalid skipped`);
+      }
+      if (res.counts.skipped_collision > 0) {
+        parts.push(`${res.counts.skipped_collision} collisions skipped`);
+      }
+
+      if (parts.length > 0) {
+        setStagingNotice(`Staged ${res.operations.length} valid operation(s). (${parts.join(", ")})`);
+      } else {
+        setStagingNotice(`Staged ${res.operations.length} operation(s) ready for review.`);
+      }
+
+      setActiveTab("review-changes");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to stage operations";
+      setError(msg);
     }
-
-    setStagedPlan(newOperations);
-    setDryRunResult(null);
-    setActiveTab("review-changes");
-  }, [suggestionResult, userDecisions, userEdits]);
+  }, [suggestionResult, selectedRoot, userDecisions, userEdits]);
 
   // Dry-Run Simulation
   const handleRunDryRun = useCallback(async () => {
@@ -1799,12 +1822,45 @@ export default function Home() {
                       <button
                         onClick={() => {
                           const allAccepted: Record<string, "accepted" | "rejected"> = {};
+                          let countAccepted = 0;
+                          let countSkippedUnchanged = 0;
+                          let countSkippedInvalid = 0;
+
                           suggestionResult.suggestions.forEach((s) => {
-                            if (s.is_valid && !s.collision_detected) {
+                            const customEdit = userEdits[s.file_id];
+                            const targetFn = (customEdit?.proposed_filename ?? s.proposed_filename).trim();
+                            const targetSub = (customEdit?.proposed_subfolder ?? s.proposed_subfolder).trim();
+                            const cleanSub = targetSub.replace(/^[\\/]+|[\\/]+$/g, "");
+
+                            const origFn = s.original_filename || s.current_relative_path.split("/").pop() || "";
+                            const origSub = s.current_relative_path.includes("/")
+                              ? s.current_relative_path.substring(0, s.current_relative_path.lastIndexOf("/"))
+                              : "";
+
+                            const folderChanged = cleanSub !== origSub;
+                            const fnChanged = targetFn !== origFn;
+
+                            if (!s.is_valid || s.collision_detected) {
+                              countSkippedInvalid++;
+                            } else if (!folderChanged && !fnChanged) {
+                              countSkippedUnchanged++;
+                            } else {
                               allAccepted[s.file_id] = "accepted";
+                              countAccepted++;
                             }
                           });
+
                           setUserDecisions(allAccepted);
+
+                          if (countAccepted === 0) {
+                            setError(
+                              `No valid modifications to accept: ${countSkippedUnchanged} file(s) are already in their suggested location, and ${countSkippedInvalid} had collisions or errors.`
+                            );
+                          } else {
+                            setStagingNotice(
+                              `Accepted ${countAccepted} valid proposal(s). Skipped: ${countSkippedUnchanged} unchanged (no-op), ${countSkippedInvalid} invalid/collision.`
+                            );
+                          }
                         }}
                         className="text-[11px] text-[#136B4D] hover:underline font-medium"
                         type="button"
@@ -1813,7 +1869,10 @@ export default function Home() {
                       </button>
                       <span className="text-[#77786F]">•</span>
                       <button
-                        onClick={() => setUserDecisions({})}
+                        onClick={() => {
+                          setUserDecisions({});
+                          setStagingNotice(null);
+                        }}
                         className="text-[11px] text-[#BA1A1A] hover:underline font-medium"
                         type="button"
                       >
@@ -1823,6 +1882,23 @@ export default function Home() {
                   )}
                 </div>
 
+                {/* Staging Notice Banner */}
+                {stagingNotice && (
+                  <div className="p-3 bg-[#E8F5EE] border border-[#136B4D]/30 rounded-lg text-xs text-[#136B4D] flex items-center justify-between shadow-xs">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      <span className="font-medium">{stagingNotice}</span>
+                    </div>
+                    <button
+                      onClick={() => setStagingNotice(null)}
+                      className="text-[#136B4D] hover:text-[#00593E] p-0.5"
+                      type="button"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
                 {/* Suggestions List */}
                 {suggestionResult?.suggestions && suggestionResult.suggestions.length > 0 ? (
                   <div className="flex flex-col gap-3">
@@ -1830,8 +1906,35 @@ export default function Home() {
                       const decision = userDecisions[item.file_id];
                       const customEdit = userEdits[item.file_id];
                       const isEditing = editingFileId === item.file_id;
-                      const activeFilename = customEdit?.proposed_filename || item.proposed_filename;
-                      const activeSubfolder = customEdit?.proposed_subfolder || item.proposed_subfolder;
+
+                      const origFilename = item.original_filename || item.current_relative_path.split("/").pop() || "";
+                      const origFolder = item.current_relative_path.includes("/")
+                        ? item.current_relative_path.substring(0, item.current_relative_path.lastIndexOf("/"))
+                        : "";
+
+                      const activeFilename = (customEdit?.proposed_filename ?? item.proposed_filename).trim();
+                      const activeSubfolder = (customEdit?.proposed_subfolder ?? item.proposed_subfolder)
+                        .trim()
+                        .replace(/^[\\/]+|[\\/]+$/g, "");
+
+                      const folderChanged = activeSubfolder !== origFolder;
+                      const filenameChanged = activeFilename !== origFilename;
+                      const isUnchanged = !folderChanged && !filenameChanged;
+
+                      let opTypeBadge = "bg-[#F0EFE9] text-[#77786F] border-[#E5E3DC]";
+                      let opTypeLabel = "NO CHANGE";
+                      if (folderChanged && filenameChanged) {
+                        opTypeBadge = "bg-[#EEF2FF] text-[#4338CA] border-[#C7D2FE]";
+                        opTypeLabel = "MOVE & RENAME";
+                      } else if (folderChanged) {
+                        opTypeBadge = "bg-[#E0F2FE] text-[#0369A1] border-[#BAE6FD]";
+                        opTypeLabel = "MOVE";
+                      } else if (filenameChanged) {
+                        opTypeBadge = "bg-[#F3E8FF] text-[#6B21A8] border-[#E9D5FF]";
+                        opTypeLabel = "RENAME";
+                      }
+
+                      const targetDisplayRel = activeSubfolder ? `${activeSubfolder}/${activeFilename}` : activeFilename;
 
                       return (
                         <div
@@ -1844,153 +1947,273 @@ export default function Home() {
                               : "bg-white border-[#E5E3DC]"
                           }`}
                         >
-                          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex flex-col gap-1 font-tabular">
-                                <div className="flex items-center gap-1.5 text-[#77786F]">
-                                  <span className="text-[11px] uppercase font-semibold w-16">Original:</span>
-                                  <span className="text-[#292A26] truncate">{item.current_relative_path}</span>
-                                </div>
-                                <div className="flex items-center gap-1.5 text-[#785A00]">
-                                  <span className="text-[11px] uppercase font-semibold w-16">Proposed:</span>
-                                  {isEditing ? (
-                                    <div className="flex items-center gap-1.5 flex-1">
-                                      <input
-                                        type="text"
-                                        value={tempEditSubfolder}
-                                        onChange={(e) => setTempEditSubfolder(e.target.value)}
-                                        placeholder="Subfolder..."
-                                        className="px-1.5 py-0.5 rounded border border-[#E5E3DC] text-[11px] w-36 bg-white"
-                                      />
-                                      <span>/</span>
-                                      <input
-                                        type="text"
-                                        value={tempEditFilename}
-                                        onChange={(e) => setTempEditFilename(e.target.value)}
-                                        placeholder="Filename..."
-                                        className="px-1.5 py-0.5 rounded border border-[#E5E3DC] text-[11px] flex-1 bg-white"
-                                      />
-                                      <button
-                                        onClick={() => {
-                                          setUserEdits((prev) => ({
-                                            ...prev,
-                                            [item.file_id]: {
-                                              proposed_filename: tempEditFilename,
-                                              proposed_subfolder: tempEditSubfolder,
-                                            },
-                                          }));
-                                          setEditingFileId(null);
-                                        }}
-                                        className="px-2 py-0.5 rounded bg-[#136B4D] text-white text-[11px]"
-                                        type="button"
-                                      >
-                                        Save
-                                      </button>
-                                      <button
-                                        onClick={() => setEditingFileId(null)}
-                                        className="px-2 py-0.5 rounded bg-[#F0EFE9] text-[#292A26] text-[11px]"
-                                        type="button"
-                                      >
-                                        Cancel
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <span className="font-semibold text-[#292A26] truncate flex items-center gap-1">
-                                      <span>
-                                        {activeSubfolder ? `${activeSubfolder}/` : ""}
-                                        {activeFilename}
-                                      </span>
-                                      <button
-                                        onClick={() => {
-                                          setEditingFileId(item.file_id);
-                                          setTempEditFilename(activeFilename);
-                                          setTempEditSubfolder(activeSubfolder);
-                                        }}
-                                        className="p-0.5 text-[#77786F] hover:text-[#292A26]"
-                                        title="Edit proposed filename and subfolder"
-                                        type="button"
-                                      >
-                                        <Edit3 className="w-3.5 h-3.5" />
-                                      </button>
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
+                          <div className="flex flex-col gap-2.5">
+                            {/* Card Top Header: Badges & Actions */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#E5E3DC]/60">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {/* Operation Type Badge */}
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider ${opTypeBadge}`}
+                                >
+                                  {opTypeLabel}
+                                </span>
 
-                              <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                                {/* Validation Status Badge */}
+                                {!item.is_valid ? (
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#FFDAD6] text-[#BA1A1A] border border-[#FCA5A5] flex items-center gap-1">
+                                    <AlertTriangle className="w-3 h-3" />
+                                    <span>Invalid: {item.validation_error || "Check failed"}</span>
+                                  </span>
+                                ) : item.collision_detected ? (
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#FFDAD6] text-[#BA1A1A] border border-[#FCA5A5] flex items-center gap-1">
+                                    <AlertTriangle className="w-3 h-3" />
+                                    <span>Collision: Target Exists</span>
+                                  </span>
+                                ) : isUnchanged ? (
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#FEF3C7] text-[#785A00] border border-[#FDE68A] flex items-center gap-1">
+                                    <Info className="w-3 h-3" />
+                                    <span>No Change Needed</span>
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#E8F5EE] text-[#136B4D] border border-[#A7F3D0] flex items-center gap-1">
+                                    <CheckCircle2 className="w-3 h-3" />
+                                    <span>Destination Validated</span>
+                                  </span>
+                                )}
+
+                                {/* Category Badge */}
                                 <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#F0EFE9] text-[#292A26]">
                                   {item.category}
                                 </span>
+
+                                {/* Confidence Score */}
                                 <span className="px-2 py-0.5 rounded text-[10px] font-tabular bg-[#F7F6F2] text-[#77786F] border border-[#E5E3DC]">
-                                  Confidence: {(item.confidence * 100).toFixed(0)}%
+                                  {(item.confidence * 100).toFixed(0)}% Confidence
                                 </span>
-                                {item.collision_detected ? (
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#FFDAD6] text-[#BA1A1A]">
-                                    Collision: Target Exists
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#E8F5EE] text-[#136B4D]">
-                                    Collision-Free
-                                  </span>
-                                )}
-                                {item.is_ambiguous && (
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#FEF3C7] text-[#785A00]">
-                                    Needs Review
-                                  </span>
-                                )}
                               </div>
-                              <p className="text-[11px] text-[#77786F] mt-1 italic">
-                                &quot;{item.rationale}&quot;
-                              </p>
+
+                              {/* Accept / Reject Buttons */}
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <button
+                                  onClick={() =>
+                                    setUserDecisions((prev) => {
+                                      const next = { ...prev };
+                                      if (decision === "accepted") {
+                                        delete next[item.file_id];
+                                      } else {
+                                        next[item.file_id] = "accepted";
+                                      }
+                                      return next;
+                                    })
+                                  }
+                                  disabled={!item.is_valid || item.collision_detected}
+                                  className={`px-2.5 py-1 rounded text-[11px] font-medium flex items-center gap-1 border transition-colors ${
+                                    decision === "accepted"
+                                      ? "bg-[#136B4D] text-white border-[#136B4D]"
+                                      : "bg-white text-[#136B4D] border-[#E5E3DC] hover:bg-[#E8F5EE]"
+                                  } disabled:opacity-40 disabled:cursor-not-allowed`}
+                                  title={
+                                    !item.is_valid
+                                      ? "Cannot accept: Invalid destination"
+                                      : item.collision_detected
+                                      ? "Cannot accept: Collision with existing file"
+                                      : isUnchanged
+                                      ? "Source and target are identical (no filesystem mutation will occur)"
+                                      : "Accept this organization suggestion"
+                                  }
+                                  type="button"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                  <span>{isUnchanged ? "Accept (No-op)" : "Accept"}</span>
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    setUserDecisions((prev) => {
+                                      const next = { ...prev };
+                                      if (decision === "rejected") {
+                                        delete next[item.file_id];
+                                      } else {
+                                        next[item.file_id] = "rejected";
+                                      }
+                                      return next;
+                                    })
+                                  }
+                                  className={`px-2.5 py-1 rounded text-[11px] font-medium flex items-center gap-1 border transition-colors ${
+                                    decision === "rejected"
+                                      ? "bg-[#BA1A1A] text-white border-[#BA1A1A]"
+                                      : "bg-white text-[#BA1A1A] border-[#E5E3DC] hover:bg-[#FFDAD6]"
+                                  }`}
+                                  type="button"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                  <span>Reject</span>
+                                </button>
+                              </div>
                             </div>
 
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <button
-                                onClick={() =>
-                                  setUserDecisions((prev) => {
-                                    const next = { ...prev };
-                                    if (decision === "accepted") {
-                                      delete next[item.file_id];
-                                    } else {
-                                      next[item.file_id] = "accepted";
-                                    }
-                                    return next;
-                                  })
-                                }
-                                disabled={item.collision_detected}
-                                className={`px-2.5 py-1 rounded text-[11px] font-medium flex items-center gap-1 border transition-colors ${
-                                  decision === "accepted"
-                                    ? "bg-[#136B4D] text-white border-[#136B4D]"
-                                    : "bg-white text-[#136B4D] border-[#E5E3DC] hover:bg-[#E8F5EE]"
-                                } disabled:opacity-40`}
-                                type="button"
-                              >
-                                <Check className="w-3.5 h-3.5" />
-                                <span>Accept</span>
-                              </button>
-                              <button
-                                onClick={() =>
-                                  setUserDecisions((prev) => {
-                                    const next = { ...prev };
-                                    if (decision === "rejected") {
-                                      delete next[item.file_id];
-                                    } else {
-                                      next[item.file_id] = "rejected";
-                                    }
-                                    return next;
-                                  })
-                                }
-                                className={`px-2.5 py-1 rounded text-[11px] font-medium flex items-center gap-1 border transition-colors ${
-                                  decision === "rejected"
-                                    ? "bg-[#BA1A1A] text-white border-[#BA1A1A]"
-                                    : "bg-white text-[#BA1A1A] border-[#E5E3DC] hover:bg-[#FFDAD6]"
-                                }`}
-                                type="button"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                                <span>Reject</span>
-                              </button>
+                            {/* Card Body: Details or Edit Mode */}
+                            {isEditing ? (
+                              <div className="p-3 bg-[#F7F6F2] rounded-lg border border-[#E5E3DC] flex flex-col gap-2.5">
+                                <div className="text-[11px] font-semibold text-[#292A26] flex items-center gap-1.5">
+                                  <Edit3 className="w-3.5 h-3.5 text-[#785A00]" />
+                                  <span>Edit Proposal: Destination Folder & Filename</span>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                  <div>
+                                    <label className="text-[10px] uppercase font-bold text-[#77786F] block mb-1">
+                                      Destination Folder (Relative to root):
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={tempEditSubfolder}
+                                      onChange={(e) => setTempEditSubfolder(e.target.value)}
+                                      placeholder="e.g. Documents/Work or leave blank for root"
+                                      className="w-full px-2 py-1 rounded border border-[#E5E3DC] text-[11px] bg-white text-[#292A26] font-mono shadow-inner"
+                                    />
+                                    <span className="text-[10px] text-[#77786F] mt-0.5 block">
+                                      Subfolder where file will be moved.
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <label className="text-[10px] uppercase font-bold text-[#77786F] block mb-1">
+                                      Suggested Filename:
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={tempEditFilename}
+                                      onChange={(e) => setTempEditFilename(e.target.value)}
+                                      placeholder="e.g. meeting-notes.txt"
+                                      className="w-full px-2 py-1 rounded border border-[#E5E3DC] text-[11px] bg-white text-[#292A26] font-mono shadow-inner"
+                                    />
+                                    <span className="text-[10px] text-[#77786F] mt-0.5 block">
+                                      Leave identical to original to keep existing filename.
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 border-t border-[#E5E3DC]">
+                                  <div className="text-[10px] text-[#77786F] font-mono truncate">
+                                    Resolved Target:{" "}
+                                    <span className="font-semibold text-[#785A00]">
+                                      {tempEditSubfolder.replace(/^[\\/]+|[\\/]+$/g, "")
+                                        ? `${tempEditSubfolder.replace(/^[\\/]+|[\\/]+$/g, "")}/${tempEditFilename.trim()}`
+                                        : tempEditFilename.trim()}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <button
+                                      onClick={() => {
+                                        setUserEdits((prev) => ({
+                                          ...prev,
+                                          [item.file_id]: {
+                                            proposed_filename: tempEditFilename.trim(),
+                                            proposed_subfolder: tempEditSubfolder.trim().replace(/^[\\/]+|[\\/]+$/g, ""),
+                                          },
+                                        }));
+                                        setEditingFileId(null);
+                                      }}
+                                      className="px-2.5 py-1 rounded bg-[#136B4D] hover:bg-[#00593E] text-white text-[11px] font-medium"
+                                      type="button"
+                                    >
+                                      Save Changes
+                                    </button>
+                                    <button
+                                      onClick={() => setEditingFileId(null)}
+                                      className="px-2.5 py-1 rounded bg-[#F0EFE9] hover:bg-[#E5E3DC] text-[#292A26] text-[11px]"
+                                      type="button"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                                {/* Source Column */}
+                                <div className="p-2.5 rounded bg-[#F7F6F2] border border-[#E5E3DC] flex flex-col gap-1.5">
+                                  <div className="text-[10px] uppercase font-bold text-[#77786F] tracking-wider">
+                                    Source (Original)
+                                  </div>
+                                  <div className="flex items-baseline gap-1.5">
+                                    <span className="text-[#77786F] text-[11px] w-28 shrink-0">Original Filename:</span>
+                                    <span className="font-semibold text-[#292A26] break-all">{origFilename}</span>
+                                  </div>
+                                  <div className="flex items-baseline gap-1.5">
+                                    <span className="text-[#77786F] text-[11px] w-28 shrink-0">Current Folder:</span>
+                                    <span className="text-[#292A26] font-mono text-[11px]">
+                                      {origFolder ? `${origFolder}/` : "/ (Root)"}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-baseline gap-1.5 text-[10px] text-[#77786F] font-mono truncate">
+                                    <span className="w-28 shrink-0 text-[#77786F]">Relative Path:</span>
+                                    <span title={item.current_relative_path}>{item.current_relative_path}</span>
+                                  </div>
+                                </div>
+
+                                {/* Destination Column */}
+                                <div className="p-2.5 rounded bg-[#FAF9F5] border border-[#E5B94F]/40 flex flex-col gap-1.5">
+                                  <div className="flex items-center justify-between">
+                                    <div className="text-[10px] uppercase font-bold text-[#785A00] tracking-wider">
+                                      Proposed Destination
+                                    </div>
+                                    <button
+                                      onClick={() => {
+                                        setEditingFileId(item.file_id);
+                                        setTempEditFilename(activeFilename);
+                                        setTempEditSubfolder(activeSubfolder);
+                                      }}
+                                      className="text-[#785A00] hover:text-[#523C00] flex items-center gap-1 text-[11px] font-medium"
+                                      title="Edit destination folder or filename before accepting"
+                                      type="button"
+                                    >
+                                      <Edit3 className="w-3 h-3" />
+                                      <span>Edit</span>
+                                    </button>
+                                  </div>
+                                  <div className="flex items-baseline gap-1.5">
+                                    <span className="text-[#77786F] text-[11px] w-28 shrink-0">Destination Folder:</span>
+                                    <span className="font-bold text-[#136B4D] font-mono text-[11px] bg-[#E8F5EE] px-1.5 py-0.5 rounded border border-[#A7F3D0]">
+                                      {activeSubfolder || "/ (Root)"}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-baseline gap-1.5">
+                                    <span className="text-[#77786F] text-[11px] w-28 shrink-0">Proposed Filename:</span>
+                                    <span className="font-semibold text-[#292A26] break-all">{activeFilename}</span>
+                                    {!filenameChanged ? (
+                                      <span className="text-[#77786F] text-[10px] italic">
+                                        (Filename unchanged)
+                                      </span>
+                                    ) : (
+                                      <span className="text-[#6B21A8] text-[10px] font-semibold bg-[#F3E8FF] px-1 rounded border border-[#E9D5FF]">
+                                        (Renamed)
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-baseline gap-1.5 text-[10px] font-mono truncate">
+                                    <span className="w-28 shrink-0 text-[#77786F]">Target Path:</span>
+                                    <span className="font-semibold text-[#785A00]" title={targetDisplayRel}>
+                                      {targetDisplayRel}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Rationale & Explanation */}
+                            <div className="text-[11px] text-[#77786F] italic flex items-baseline gap-1">
+                              <span className="font-semibold not-italic text-[#292A26]">Explanation:</span>
+                              <span>&quot;{item.rationale}&quot;</span>
                             </div>
+
+                            {/* Informative banner if no change is needed */}
+                            {isUnchanged && (
+                              <div className="p-2 bg-[#FEF3C7]/60 border border-[#FDE68A] rounded text-[11px] text-[#785A00] flex items-center gap-1.5">
+                                <Info className="w-3.5 h-3.5 shrink-0" />
+                                <span>
+                                  Source and proposed target are identical. There is no change to apply.
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );

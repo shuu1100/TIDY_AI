@@ -257,11 +257,15 @@ export async function testOllamaInference(
 
 export interface SuggestionItem {
   file_id: string;
+  root_id?: string;
+  original_filename?: string;
+  original_absolute_path?: string;
   current_relative_path: string;
   category: string;
   proposed_filename: string;
   proposed_subfolder: string;
   proposed_relative_path: string;
+  destination_absolute_path?: string;
   rationale: string;
   confidence: number;
   is_ambiguous: boolean;
@@ -269,6 +273,8 @@ export interface SuggestionItem {
   collision_details?: string | null;
   is_valid: boolean;
   validation_error?: string | null;
+  validation_status?: "valid" | "collision" | "invalid" | "no_change" | string;
+  operation_type?: "move" | "rename" | "organize" | "none" | string;
 }
 
 export interface SuggestionWarning {
@@ -316,6 +322,42 @@ export async function executeSuggestions(
     const errorData = await res.json().catch(() => ({}));
     throw new Error(
       errorData.detail || `AI suggestions request failed: ${res.statusText}`
+    );
+  }
+  return res.json();
+}
+
+export interface SuggestionStageRequest {
+  root_id: string;
+  suggestions: SuggestionItem[];
+  decisions: Record<string, string>;
+  edits?: Record<string, { proposed_filename?: string; proposed_subfolder?: string }>;
+}
+
+export interface SuggestionStageResponse {
+  operations: OperationPlanItem[];
+  counts: {
+    staged: number;
+    skipped_no_change: number;
+    skipped_invalid: number;
+    skipped_collision: number;
+    skipped_unapproved: number;
+  };
+  notice: string;
+}
+
+export async function stageSuggestions(
+  req: SuggestionStageRequest
+): Promise<SuggestionStageResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/suggestions/stage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(
+      errorData.detail || `Staging suggestions failed: ${res.statusText}`
     );
   }
   return res.json();

@@ -21,6 +21,8 @@ from backend.app.schemas import (
     ScanResponse,
     SuggestionBatchRequest,
     SuggestionBatchResponse,
+    SuggestionStageRequest,
+    SuggestionStageResponse,
     ClassificationBatchRequest,
     ClassificationBatchResponse,
     DryRunRequest,
@@ -32,7 +34,10 @@ from backend.app.schemas import (
 )
 from backend.app.services.classifier import classify_files_batch
 from backend.app.services.duplicates import detect_duplicates
-from backend.app.services.suggestions import generate_suggestions
+from backend.app.services.suggestions import (
+    generate_suggestions,
+    stage_accepted_suggestions_batch,
+)
 from backend.app.services.operations import (
     apply_operation_plan,
     get_operation_history,
@@ -390,6 +395,40 @@ async def generate_file_suggestions(req: SuggestionBatchRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Unexpected error generating suggestions: {str(exc)}",
         )
+
+
+@app.post(
+    "/api/suggestions/stage",
+    response_model=SuggestionStageResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["Suggestions"],
+)
+async def stage_suggestions_endpoint(req: SuggestionStageRequest):
+    """Validate and stage accepted AI suggestions into the operations queue.
+
+    Deterministic safety:
+    - Filters out invalid and colliding suggestions.
+    - Excludes items where source and target are identical (no-op).
+    - Classifies operations as 'move' or 'rename'.
+    - Returns summary counts of staged vs skipped items.
+    """
+    approved = roots_registry.get_root(req.root_id)
+    if not approved:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Approved root with id '{req.root_id}' is not registered.",
+        )
+
+    staged_ops, counts = stage_accepted_suggestions_batch(
+        suggestions=req.suggestions,
+        decisions=req.decisions,
+        edits=req.edits,
+    )
+
+    return SuggestionStageResponse(
+        operations=staged_ops,
+        counts=counts,
+    )
 
 
 # ==============================================================================
