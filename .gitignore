@@ -1,0 +1,76 @@
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+backend/.venv/
+.venv/
+venv/
+ENV/
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+htmlcov/
+
+# Databases & Local State
+*.db
+*.sqlite
+*.sqlite3
+backend/tidy_ai.db
+backend/test_tidy_ai.db
+
+# Node & Next.js
+frontend/node_modules/
+node_modules/
+frontend/.next/
+.next/
+frontend/out/
+out/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+Thumbs.db
+[Dd]esktop.ini
+.DS_Store

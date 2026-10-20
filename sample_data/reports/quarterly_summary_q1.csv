@@ -1,0 +1,5 @@
+quarter,metric,value,unit
+Q1_2024,active_users,12450,count
+Q1_2024,mrr,45200,usd
+Q1_2024,churn_rate,1.8,percent
+Q1_2024,uptime,99.98,percent

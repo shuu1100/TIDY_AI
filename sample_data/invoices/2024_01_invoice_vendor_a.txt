@@ -1,0 +1,6 @@
+Invoice #1001
+Date: 2024-01-15
+Vendor: Cloud Hosting Services Inc.
+Amount: $45.00
+Status: Paid
+Details: Monthly virtual server hosting and backups.
