@@ -49,7 +49,7 @@ TidyAI
 - **Node.js**: v20+ (Verified on `v24.20.0`, npm `11.19.0`)
 - **Python**: 3.11+ (Verified on `3.14.6`)
 - **Git**: 2.40+ (Verified on `2.55.0.windows.2`)
-- **Ollama**: Local daemon running with a model such as `qwen3-vl:8b` (optional for Phase 1 skeleton, required in Phase 4+)
+- **Ollama**: Local daemon running on `http://127.0.0.1:11434` with model `qwen3:4b` (`ollama pull qwen3:4b`)
 
 ---
 
@@ -60,6 +60,7 @@ Copy the environment template:
 ```powershell
 Copy-Item .env.example .env
 ```
+Ensure `OLLAMA_MODEL=qwen3:4b` is set in `.env` if using custom configurations.
 
 ### 2. Run Backend (FastAPI on 127.0.0.1:8765)
 The backend script automatically initializes the virtual environment (`backend/.venv`) if missing, installs dependencies, and launches Uvicorn:
@@ -99,10 +100,11 @@ To prevent accidental modification of real user folders, development and testing
 
 - [x] **Phase 0**: Workspace Audit & Architecture Planning ([WORKSPACE_AUDIT.md](file:///c:/local_disc_D/Hackathan/TIDY_AI/WORKSPACE_AUDIT.md), [PLAN.md](file:///c:/local_disc_D/Hackathan/TIDY_AI/PLAN.md))
 - [x] **Phase 1**: Project Scaffolding (Skeleton, SQLite, Ollama Stub, Dashboard Shell, Tests)
-- [ ] **Phase 2**: Secure Read-Only File Scanner (Containment checks & metadata inventory)
-- [ ] **Phase 3**: Exact Duplicate Detection (Chunked SHA-256 hashing)
-- [ ] **Phase 4**: Local Ollama AI Integration (Client, health verification & retry logic)
-- [ ] **Phase 5**: AI Categorization & Suggestion Engine (Structured path proposals)
+- [x] **Phase 2**: Secure Read-Only File Scanner (Containment checks & metadata inventory)
+- [x] **Phase 3**: Exact Duplicate Detection (Chunked SHA-256 hashing)
+- [x] **Phase 4**: Local Ollama AI Integration (Client, health verification & retry logic)
+- [x] **Phase 5**: AI Categorization & Suggestion Engine (Structured path proposals)
+- [x] **Hybrid AI Engine Increment 1**: Deterministic Rule-First Classifier & Qwen3 4B Alignment
 - [ ] **Phase 6**: Safe Operations, Dry-Run, History & Reversible Undo
 - [ ] **Phase 7**: Frontend Dashboard Integration (Full interactive workflow)
 - [ ] **Phase 8**: QA & Security Audit (Path traversal, Windows quirks & regression suite)

@@ -2,6 +2,7 @@
 
 import pytest
 from fastapi.testclient import TestClient
+from backend.app.config import settings
 from backend.app.main import app
 from backend.app.schemas import HealthResponse, OllamaStatusResponse
 from backend.app.services.ollama import ollama_service
@@ -38,7 +39,7 @@ def test_health_endpoint(client):
     assert validated.port == 8765
     assert validated.database_connected is True
     assert validated.ollama_configured is True
-    assert validated.ollama_model == "qwen3-vl:8b"
+    assert validated.ollama_model == settings.ollama_model
 
 
 def test_ollama_status_endpoint(client):
@@ -49,7 +50,7 @@ def test_ollama_status_endpoint(client):
     
     # Validate against Pydantic schema
     validated = OllamaStatusResponse(**data)
-    assert validated.model_name == "qwen3-vl:8b"
+    assert validated.model_name == settings.ollama_model
     assert isinstance(validated.reachable, bool)
     assert isinstance(validated.model_installed, bool)
     assert validated.state in ["healthy", "server_unreachable", "model_missing"]

@@ -31,6 +31,7 @@ from backend.app.services.ollama import (
     OllamaTimeoutError,
     ollama_service,
 )
+from backend.app.services.classifier import classify_file
 from backend.app.services.scanner import scan_approved_root
 from backend.app.services.security import (
     SecurityBoundaryError,
@@ -258,6 +259,7 @@ def build_user_prompt(files: List[FileEntry]) -> str:
     """Format file metadata into a clear JSON payload for the AI model."""
     files_meta = []
     for f in files:
+        rule_info = classify_file(f.filename, f.relative_path, f.size_bytes)
         files_meta.append(
             {
                 "file_id": f.relative_path,
@@ -266,6 +268,8 @@ def build_user_prompt(files: List[FileEntry]) -> str:
                 "extension": f.extension,
                 "size_bytes": f.size_bytes,
                 "file_type": f.file_type.value,
+                "rule_category": rule_info.category.value,
+                "rule_subfolder": rule_info.suggested_subfolder,
             }
         )
 
@@ -435,25 +439,27 @@ async def generate_suggestions(
     for cand in candidate_files:
         raw_sugg = raw_by_id.get(cand.relative_path)
 
+        rule_info = classify_file(cand.filename, cand.relative_path, cand.size_bytes)
+
         if not raw_sugg:
-            # Model skipped this file: fallback safely to original location
+            # Model skipped this file: fallback safely to rule-based category and original location
             warnings.append(
                 SuggestionWarning(
                     path=cand.relative_path,
                     warning_type="model_error",
-                    message="Model did not return a suggestion for this file. Preserved current location.",
+                    message=f"Model did not return a suggestion for this file. Preserved current location with rule category '{rule_info.category.value}'.",
                 )
             )
             validated_suggestions.append(
                 SuggestionItem(
                     file_id=cand.relative_path,
                     current_relative_path=cand.relative_path,
-                    category="Uncategorized",
+                    category=rule_info.category.value,
                     proposed_filename=cand.filename,
                     proposed_subfolder=str(Path(cand.relative_path).parent.as_posix()).replace(".", ""),
                     proposed_relative_path=cand.relative_path,
-                    rationale="Preserved original location due to missing model completion.",
-                    confidence=0.5,
+                    rationale=f"Preserved original location due to missing model completion (Rule fallback: {rule_info.reason}).",
+                    confidence=rule_info.confidence,
                     is_ambiguous=True,
                     collision_detected=False,
                     collision_details=None,
@@ -528,7 +534,7 @@ async def generate_suggestions(
             SuggestionItem(
                 file_id=cand.relative_path,
                 current_relative_path=cand.relative_path,
-                category=raw_sugg.category if is_valid else "Uncategorized",
+                category=raw_sugg.category if is_valid else rule_info.category.value,
                 proposed_filename=clean_filename,
                 proposed_subfolder=clean_subfolder,
                 proposed_relative_path=proposed_rel,

@@ -9,6 +9,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
+from backend.app.config import settings
 from backend.app.main import app
 from backend.app.schemas import OllamaHealthState, OllamaStatusResponse
 from backend.app.services.ollama import (
@@ -287,7 +288,7 @@ def test_api_ollama_test_endpoint_success(client):
         )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["model"] == "qwen3-vl:8b"
+    assert data["model"] == settings.ollama_model
     assert data["response_text"] == '{"status": "ok"}'
     assert data["duration_ms"] == 120.5
 

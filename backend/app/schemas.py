@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import List, Optional
+from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -317,5 +317,83 @@ class SuggestionBatchResponse(BaseModel):
     summary: SuggestionSummary = Field(..., description="Statistical summary")
     suggestions: List[SuggestionItem] = Field(default_factory=list, description="Validated suggestions")
     warnings: List[SuggestionWarning] = Field(default_factory=list, description="Structured warnings")
+
+
+# ==============================================================================
+# Rule-Based File Classification Schemas
+# ==============================================================================
+
+class FileCategory(str, Enum):
+    """Centralized taxonomy for rule-based and AI file classification."""
+
+    DOCUMENTS = "Documents"
+    SPREADSHEETS = "Spreadsheets"
+    PRESENTATIONS = "Presentations"
+    IMAGES = "Images"
+    VIDEOS = "Videos"
+    AUDIO = "Audio"
+    ARCHIVES = "Archives"
+    CODE = "Code"
+    DATASETS = "Datasets"
+    OTHER = "Other"
+    NEEDS_REVIEW = "Needs review"
+
+
+class ClassificationSource(str, Enum):
+    """Source that determined the classification."""
+
+    EXTENSION_RULE = "extension_rule"
+    MIME_RULE = "mime_rule"
+    FILENAME_RULE = "filename_rule"
+    OLLAMA = "ollama"
+
+
+class FileClassificationItem(BaseModel):
+    """Individual file classification result."""
+
+    relative_path: str = Field(..., description="Relative path from approved root")
+    filename: str = Field(..., description="Filename including extension")
+    extension: str = Field(..., description="Normalized lowercase file extension")
+    size_bytes: int = Field(..., ge=0, description="File size in bytes")
+    category: FileCategory = Field(..., description="Determined category")
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score")
+    source: ClassificationSource = Field(..., description="Rule or model source that made classification")
+    reason: str = Field(..., description="Explanation for classification")
+    suggested_subfolder: str = Field(..., description="Deterministic destination folder recommendation")
+    is_ambiguous: bool = Field(False, description="Whether classification is uncertain and warrants review")
+
+
+class ClassificationSummary(BaseModel):
+    """Summary statistics for classification run."""
+
+    root_id: str = Field(..., description="Approved root ID")
+    root_path: str = Field(..., description="Canonical approved root path")
+    total_files: int = Field(..., ge=0, description="Total files evaluated")
+    classified_by_rules: int = Field(..., ge=0, description="Files classified by deterministic rules")
+    needs_review_count: int = Field(..., ge=0, description="Files requiring manual user review")
+    categories_count: Dict[str, int] = Field(default_factory=dict, description="File count per category")
+    duration_ms: float = Field(..., ge=0, description="Elapsed execution time in milliseconds")
+
+
+class ClassificationBatchRequest(BaseModel):
+    """Request schema for rule-based file classification."""
+
+    root_id: str = Field(..., description="ID of approved root to evaluate")
+    subpath: str = Field("", description="Optional subfolder within root to restrict scope")
+    file_paths: Optional[List[str]] = Field(None, description="Optional list of specific relative file paths")
+    max_files: int = Field(500, ge=1, le=5000, description="Maximum files to classify in batch")
+
+
+class ClassificationBatchResponse(BaseModel):
+    """Batch response for file classification."""
+
+    batch_id: str = Field(..., description="Unique ID for this classification run")
+    notice: str = Field(
+        "READ ONLY: Rule-based classification does not move or modify any files.",
+        description="Mandatory read-only notice",
+    )
+    summary: ClassificationSummary = Field(..., description="Summary statistics")
+    classifications: List[FileClassificationItem] = Field(default_factory=list, description="Classified file items")
+
 
 

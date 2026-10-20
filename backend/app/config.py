@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     
     # Local Ollama AI settings
     ollama_base_url: str = "http://127.0.0.1:11434"
-    ollama_model: str = "qwen3-vl:8b"
+    ollama_model: str = "qwen3:4b"
     ollama_timeout_seconds: float = 15.0
     
     # Local SQLite Database

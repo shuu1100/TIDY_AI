@@ -21,7 +21,10 @@ from backend.app.schemas import (
     ScanResponse,
     SuggestionBatchRequest,
     SuggestionBatchResponse,
+    ClassificationBatchRequest,
+    ClassificationBatchResponse,
 )
+from backend.app.services.classifier import classify_files_batch
 from backend.app.services.duplicates import detect_duplicates
 from backend.app.services.suggestions import generate_suggestions
 from backend.app.services.ollama import (
@@ -88,6 +91,13 @@ async def root():
     status_code=status.HTTP_200_OK,
     tags=["System"],
 )
+@app.get(
+    "/api/v1/health",
+    response_model=HealthResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["System"],
+    include_in_schema=False,
+)
 async def get_health():
     """Typed health check endpoint verifying database connectivity and configuration."""
     db_ok = check_db_connection()
@@ -110,6 +120,12 @@ async def get_health():
     "/api/ollama/status",
     response_model=OllamaStatusResponse,
     tags=["Ollama AI"],
+)
+@app.get(
+    "/api/v1/ai/health",
+    response_model=OllamaStatusResponse,
+    tags=["Ollama AI"],
+    include_in_schema=False,
 )
 async def get_ollama_status():
     """Check availability of local Ollama server and configured model."""
@@ -356,4 +372,55 @@ async def generate_file_suggestions(req: SuggestionBatchRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Unexpected error generating suggestions: {str(exc)}",
         )
+
+
+# ==============================================================================
+# Rule-Based File Classification Endpoints
+# ==============================================================================
+
+@app.post(
+    "/api/classify",
+    response_model=ClassificationBatchResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["Classification"],
+)
+@app.post(
+    "/api/v1/classify",
+    response_model=ClassificationBatchResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["Classification"],
+    include_in_schema=False,
+)
+async def classify_files_endpoint(req: ClassificationBatchRequest):
+    """Classify files deterministically using explicit Python rules first.
+
+    Evaluates file extension, standard MIME type, and filename patterns.
+    Flags ambiguous items as 'Needs review'.
+    Never mutates files or executes external APIs.
+    """
+    approved = roots_registry.get_root(req.root_id)
+    if not approved:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Approved root with id '{req.root_id}' is not registered.",
+        )
+
+    try:
+        return classify_files_batch(
+            root=approved,
+            subpath=req.subpath,
+            file_paths=req.file_paths,
+            max_files=req.max_files,
+        )
+    except SecurityBoundaryError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Classification error: {str(exc)}",
+        )
+
 
