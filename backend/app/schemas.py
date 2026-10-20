@@ -240,12 +240,12 @@ class OllamaFileSuggestion(BaseModel):
     """Raw suggestion item produced by local Ollama model."""
 
     file_id: str = Field(..., description="Unique file identifier or relative path")
-    current_relative_path: str = Field(..., description="Current relative path of the file")
+    current_relative_path: Optional[str] = Field(None, description="Current relative path of the file")
     category: str = Field(..., description="Suggested organizational category (e.g. 'Documents/Invoices')")
-    proposed_filename: str = Field(..., description="Suggested clean filename including original extension")
-    proposed_subfolder: str = Field(..., description="Suggested relative destination subfolder")
-    rationale: str = Field(..., description="Short explanation for the suggestion")
-    confidence: float = Field(..., ge=0.0, le=1.0, description="Model confidence score between 0.0 and 1.0")
+    proposed_filename: Optional[str] = Field(None, description="Suggested clean filename including original extension")
+    proposed_subfolder: Optional[str] = Field(None, description="Suggested relative destination subfolder")
+    rationale: str = Field("AI proposed categorization", description="Short explanation for the suggestion")
+    confidence: float = Field(0.8, ge=0.0, le=1.0, description="Model confidence score between 0.0 and 1.0")
 
 
 class OllamaSuggestionBatch(BaseModel):
@@ -396,4 +396,155 @@ class ClassificationBatchResponse(BaseModel):
     classifications: List[FileClassificationItem] = Field(default_factory=list, description="Classified file items")
 
 
+# ==============================================================================
+# File Operations, Dry-Run Simulation, History & Safe Undo Schemas (Phase 6)
+# ==============================================================================
 
+class OperationType(str, Enum):
+    """Supported filesystem operation types."""
+
+    MOVE = "move"
+    RENAME = "rename"
+    ORGANIZE = "organize"
+
+
+class OperationPlanItem(BaseModel):
+    """Individual operation staged for preview or execution."""
+
+    source_rel_path: str = Field(..., description="Relative path of source file from approved root")
+    target_rel_path: str = Field(..., description="Relative destination path within approved root")
+    operation_type: OperationType = Field(OperationType.MOVE, description="Type of operation")
+    approved: bool = Field(True, description="Whether this operation is approved by the user")
+
+
+class DryRunItem(BaseModel):
+    """Simulation result for a single planned operation."""
+
+    source_rel_path: str = Field(..., description="Source relative path")
+    target_rel_path: str = Field(..., description="Target relative destination path")
+    operation_type: str = Field(..., description="Operation type")
+    approved: bool = Field(..., description="Whether user approved this item")
+    is_safe: bool = Field(..., description="True if operation passes all safety checks and can be executed")
+    validation_error: Optional[str] = Field(None, description="Detailed reason if operation is blocked")
+    will_create_subfolder: Optional[str] = Field(None, description="Relative subfolder that will be created on apply")
+    collision_detected: bool = Field(False, description="Whether target destination already exists or collides")
+    source_exists: bool = Field(True, description="Whether source file exists on disk")
+    target_exists: bool = Field(False, description="Whether target file currently exists on disk")
+
+
+class DryRunSummary(BaseModel):
+    """Statistical summary of dry-run simulation."""
+
+    root_id: str = Field(..., description="Approved root ID")
+    root_path: str = Field(..., description="Canonical approved root path")
+    total_operations: int = Field(..., ge=0, description="Total operations evaluated")
+    safe_operations: int = Field(..., ge=0, description="Operations passing all pre-flight checks")
+    blocked_operations: int = Field(..., ge=0, description="Operations blocked by safety or collisions")
+    is_executable: bool = Field(..., description="Whether plan contains at least one safe operation and no unresolvable fatal conflicts")
+
+
+class DryRunRequest(BaseModel):
+    """Request schema for dry-run preview simulation."""
+
+    root_id: str = Field(..., description="ID of approved root")
+    operations: List[OperationPlanItem] = Field(..., min_length=1, description="List of operations to simulate")
+
+
+class DryRunResponse(BaseModel):
+    """Complete dry-run preview report."""
+
+    batch_id: str = Field(..., description="Unique simulation batch ID")
+    notice: str = Field(
+        "DRY RUN ONLY: No files have been moved, renamed, or modified on disk. No directories created.",
+        description="Mandatory read-only preview notice",
+    )
+    summary: DryRunSummary = Field(..., description="Simulation summary")
+    items: List[DryRunItem] = Field(default_factory=list, description="Simulated operation items")
+
+
+class ApplyOperationsRequest(BaseModel):
+    """Request schema for executing a confirmed operation plan."""
+
+    root_id: str = Field(..., description="ID of approved root")
+    operations: List[OperationPlanItem] = Field(..., min_length=1, description="List of operations to execute")
+    confirmed: bool = Field(
+        ...,
+        description="Explicit user confirmation. Must be True to execute any file mutations on disk.",
+    )
+
+
+class ExecutedItem(BaseModel):
+    """Record of an executed file operation."""
+
+    id: Optional[str] = Field(None, description="Unique item ID")
+    source_rel_path: str = Field(..., description="Source relative path before execution")
+    target_rel_path: str = Field(..., description="Target relative path after execution")
+    operation_type: str = Field(..., description="Operation type")
+    status: str = Field(..., description="'applied', 'failed', or 'skipped'")
+    error_message: Optional[str] = Field(None, description="Error details if execution failed")
+    executed_at: Optional[datetime] = Field(None, description="Timestamp of execution")
+    is_undone: bool = Field(False, description="Whether this operation was subsequently undone")
+
+
+class ApplyOperationsResponse(BaseModel):
+    """Result of executing an operation plan."""
+
+    batch_id: str = Field(..., description="Unique operation batch ID in ledger")
+    root_id: str = Field(..., description="Approved root ID")
+    root_path: str = Field(..., description="Canonical approved root path")
+    total_requested: int = Field(..., ge=0, description="Total operations in request")
+    total_applied: int = Field(..., ge=0, description="Total operations successfully applied")
+    failed_count: int = Field(..., ge=0, description="Total operations failed")
+    skipped_count: int = Field(0, ge=0, description="Total operations skipped (unapproved or blocked)")
+    status: str = Field(..., description="'completed', 'partial', or 'failed'")
+    items: List[ExecutedItem] = Field(default_factory=list, description="Execution records per item")
+    executed_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="Execution timestamp",
+    )
+
+
+class UndoItem(BaseModel):
+    """Result of reverting a single operation item."""
+
+    item_id: Optional[str] = Field(None, description="Ledger item ID")
+    source_rel_path: str = Field(..., description="Original source path being restored to")
+    target_rel_path: str = Field(..., description="Current path being restored from")
+    status: str = Field(..., description="'reverted', 'failed', or 'skipped'")
+    error_message: Optional[str] = Field(None, description="Error details if undo could not be applied")
+
+
+class UndoResponse(BaseModel):
+    """Result of an undo operation on a batch."""
+
+    batch_id: str = Field(..., description="Operation batch ID that was reverted")
+    total_items: int = Field(..., ge=0, description="Total items in batch")
+    total_reverted: int = Field(..., ge=0, description="Items successfully moved back to original path")
+    blocked_count: int = Field(..., ge=0, description="Items blocked from undo (e.g. original path occupied)")
+    status: str = Field(..., description="'fully_undone', 'partially_undone', or 'failed'")
+    items: List[UndoItem] = Field(default_factory=list, description="Per-item undo results")
+    undone_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="Timestamp of undo execution",
+    )
+
+
+class OperationBatchHistoryItem(BaseModel):
+    """Historical operation batch recorded in SQLite ledger."""
+
+    batch_id: str = Field(..., description="Batch identifier")
+    created_at: datetime = Field(..., description="Batch creation timestamp")
+    approved_root: str = Field(..., description="Canonical approved root path")
+    root_id: Optional[str] = Field(None, description="Approved root identifier if available")
+    total_items: int = Field(..., ge=0, description="Total items in batch")
+    status: str = Field(..., description="Batch status ('completed', 'partial', 'failed', 'undone')")
+    is_dry_run: bool = Field(..., description="Whether this batch was dry-run only")
+    is_undone: bool = Field(False, description="Whether this batch has been reverted")
+    undone_at: Optional[datetime] = Field(None, description="Timestamp when batch was reverted")
+    items: List[ExecutedItem] = Field(default_factory=list, description="Items executed within this batch")
+
+
+class OperationHistoryResponse(BaseModel):
+    """Complete history of operation batches from audit ledger."""
+
+    batches: List[OperationBatchHistoryItem] = Field(default_factory=list, description="Historical batches")

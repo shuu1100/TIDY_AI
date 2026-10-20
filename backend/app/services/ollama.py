@@ -9,7 +9,7 @@ import asyncio
 import json
 import re
 import time
-from typing import Any, Dict, List, Optional, Type, TypeVar
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
 import httpx
 from pydantic import BaseModel, ValidationError
 from backend.app.config import settings
@@ -67,27 +67,63 @@ class OllamaService:
         base_url: Optional[str] = None,
         model_name: Optional[str] = None,
         timeout: Optional[float] = None,
-        max_retries: int = 2,
+        connect_timeout: Optional[float] = None,
+        read_timeout: Optional[float] = None,
+        max_retries: int = 1,
     ) -> None:
         self.base_url = (base_url or settings.ollama_base_url).rstrip("/")
         self.model_name = model_name or settings.ollama_model
-        self.timeout = timeout if timeout is not None else settings.ollama_timeout_seconds
+        self.connect_timeout = (
+            connect_timeout
+            if connect_timeout is not None
+            else settings.ollama_connect_timeout_seconds
+        )
+        self.read_timeout = (
+            read_timeout
+            if read_timeout is not None
+            else (timeout if timeout is not None else settings.ollama_read_timeout_seconds)
+        )
+        self.timeout = self.read_timeout  # backwards compatibility
         self.max_retries = max_retries
+
+    @staticmethod
+    def _check_model_installed(target_model: str, available_models: List[str]) -> bool:
+        """Check if target model is present in Ollama's available models list.
+
+        Handles:
+        - Exact match: e.g. "qwen3:4b" == "qwen3:4b"
+        - Implicit latest tag: e.g. "qwen3" matches "qwen3:latest", or "qwen3:latest" matches "qwen3"
+        - Rejects prefix collisions: e.g. "qwen3-vl:8b" does not falsely match "qwen3:4b".
+        """
+        target_lower = target_model.strip().lower()
+        target_base = target_lower.split(":")[0]
+        target_tag = target_lower.split(":")[1] if ":" in target_lower else "latest"
+
+        for m in available_models:
+            m_lower = m.strip().lower()
+            if m_lower == target_lower:
+                return True
+            m_base = m_lower.split(":")[0]
+            m_tag = m_lower.split(":")[1] if ":" in m_lower else "latest"
+            if m_base == target_base and m_tag == target_tag:
+                return True
+        return False
 
     async def get_status(self) -> OllamaStatusResponse:
         """Inspect health of local Ollama server and verify target model availability.
 
         Distinguishes:
-        - SERVER_UNREACHABLE: Daemon not running or port 11434 not listening.
+        - SERVER_UNREACHABLE: Daemon not running or port 11434 not listening / timed out.
         - MODEL_MISSING: Daemon running, but configured model not in tags.
         - HEALTHY: Daemon running and model installed.
         """
+        check_timeout = httpx.Timeout(timeout=5.0, connect=self.connect_timeout)
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                # 1. Query Ollama version
+            async with httpx.AsyncClient(timeout=check_timeout) as client:
+                # 1. Query Ollama version (verifies daemon connectivity)
                 try:
                     version_resp = await client.get(f"{self.base_url}/api/version")
-                except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
+                except (httpx.ConnectError, ConnectionRefusedError) as exc:
                     return OllamaStatusResponse(
                         state=OllamaHealthState.SERVER_UNREACHABLE,
                         reachable=False,
@@ -96,10 +132,10 @@ class OllamaService:
                         model_name=self.model_name,
                         available_models=[],
                         base_url=self.base_url,
-                        message=f"Local Ollama server unreachable at {self.base_url}. Ensure daemon is running: {str(exc)}",
+                        message=f"Local Ollama server is unreachable at {self.base_url}. Ensure daemon is running ('ollama serve').",
                         install_command="ollama serve",
                     )
-                except httpx.TimeoutException:
+                except (httpx.ConnectTimeout, httpx.TimeoutException) as exc:
                     return OllamaStatusResponse(
                         state=OllamaHealthState.SERVER_UNREACHABLE,
                         reachable=False,
@@ -108,7 +144,7 @@ class OllamaService:
                         model_name=self.model_name,
                         available_models=[],
                         base_url=self.base_url,
-                        message=f"Connection timed out reaching Ollama at {self.base_url}.",
+                        message=f"Connection timed out reaching Ollama server at {self.base_url}.",
                         install_command="ollama serve",
                     )
 
@@ -121,25 +157,35 @@ class OllamaService:
                         model_name=self.model_name,
                         available_models=[],
                         base_url=self.base_url,
-                        message=f"Ollama server returned unexpected status HTTP {version_resp.status_code}.",
+                        message=f"Ollama server returned unexpected HTTP status {version_resp.status_code}.",
                         install_command="ollama serve",
                     )
 
                 version = version_resp.json().get("version", "unknown")
 
-                # 2. Query available local models
-                tags_resp = await client.get(f"{self.base_url}/api/tags")
+                # 2. Server is reachable; now verify configured model availability
+                try:
+                    tags_resp = await client.get(f"{self.base_url}/api/tags")
+                except httpx.TimeoutException:
+                    return OllamaStatusResponse(
+                        state=OllamaHealthState.SERVER_UNREACHABLE,
+                        reachable=True,
+                        version=version,
+                        model_installed=False,
+                        model_name=self.model_name,
+                        available_models=[],
+                        base_url=self.base_url,
+                        message="Ollama server responded to version check, but listing models timed out.",
+                        install_command=f"ollama pull {self.model_name}",
+                    )
+
                 available_models: List[str] = []
                 model_installed = False
 
                 if tags_resp.status_code == 200:
                     tags_data = tags_resp.json()
                     available_models = [m.get("name", "") for m in tags_data.get("models", [])]
-                    target_prefix = self.model_name.split(":")[0]
-                    model_installed = any(
-                        m == self.model_name or m.startswith(target_prefix)
-                        for m in available_models
-                    )
+                    model_installed = self._check_model_installed(self.model_name, available_models)
 
                 if not model_installed:
                     return OllamaStatusResponse(
@@ -150,7 +196,7 @@ class OllamaService:
                         model_name=self.model_name,
                         available_models=available_models,
                         base_url=self.base_url,
-                        message=f"Ollama is running, but model '{self.model_name}' is not installed.",
+                        message=f"Ollama server is running (v{version}), but model '{self.model_name}' is not installed.",
                         install_command=f"ollama pull {self.model_name}",
                     )
 
@@ -162,7 +208,7 @@ class OllamaService:
                     model_name=self.model_name,
                     available_models=available_models,
                     base_url=self.base_url,
-                    message=f"Ollama is healthy. Local model '{self.model_name}' is ready.",
+                    message=f"Ollama server is healthy (v{version}). Local model '{self.model_name}' is ready.",
                     install_command=None,
                 )
 
@@ -175,7 +221,7 @@ class OllamaService:
                 model_name=self.model_name,
                 available_models=[],
                 base_url=self.base_url,
-                message=f"Error inspecting Ollama: {str(exc)}",
+                message=f"Error inspecting Ollama status: {str(exc)}",
                 install_command="ollama serve",
             )
 
@@ -186,14 +232,14 @@ class OllamaService:
         temperature: float = 0.1,
         enforce_json: bool = True,
     ) -> Tuple[str, float]:
-        """Send chat prompt to local Ollama with bounded retries and timeout.
+        """Send chat prompt to local Ollama with bounded retries and timeouts.
 
         Returns (cleaned_response_text, duration_ms).
         """
-        # Pre-check model availability before attempting inference
+        # Pre-check server and model availability
         status_info = await self.get_status()
         if not status_info.reachable:
-            raise OllamaConnectionError(f"Ollama server is unreachable at {self.base_url}.")
+            raise OllamaConnectionError(f"Ollama server is unreachable at {self.base_url}. {status_info.message}")
         if not status_info.model_installed:
             raise OllamaModelNotFoundError(
                 f"Model '{self.model_name}' is not installed locally. Run: '{status_info.install_command}'."
@@ -208,6 +254,7 @@ class OllamaService:
             "model": self.model_name,
             "messages": messages,
             "stream": False,
+            "think": False,
             "options": {"temperature": max(0.0, min(1.0, temperature))},
         }
         if enforce_json:
@@ -215,10 +262,11 @@ class OllamaService:
 
         start_time = time.perf_counter()
         last_exception: Optional[Exception] = None
+        chat_timeout = httpx.Timeout(timeout=self.read_timeout, connect=self.connect_timeout)
 
         for attempt in range(self.max_retries + 1):
             try:
-                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                async with httpx.AsyncClient(timeout=chat_timeout) as client:
                     resp = await client.post(f"{self.base_url}/api/chat", json=payload)
 
                     if resp.status_code == 404:
@@ -242,14 +290,16 @@ class OllamaService:
                 )
             except httpx.TimeoutException as exc:
                 last_exception = OllamaTimeoutError(
-                    f"Ollama request timed out after {self.timeout}s: {str(exc)}"
+                    f"Ollama request timed out after {self.read_timeout}s: {str(exc)}"
                 )
+                # Fail fast on inference timeout to avoid multiplying wait time across retries
+                break
             except (OllamaModelNotFoundError, OllamaResponseError):
                 raise
             except Exception as exc:
                 last_exception = OllamaError(f"Unexpected error communicating with Ollama: {str(exc)}")
 
-            # Exponential backoff between retries
+            # Exponential backoff between retries for transient connection errors
             if attempt < self.max_retries:
                 await asyncio.sleep(0.5 * (2 ** attempt))
 

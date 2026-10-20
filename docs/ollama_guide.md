@@ -10,23 +10,30 @@ TidyAI is designed with a **strict local privacy mandate**. All generative reaso
    - Official installer: [https://ollama.com/download/windows](https://ollama.com/download/windows)
 2. **Install**: Run the installer and complete the setup wizard.
 3. **Verify Daemon**:
-   Open Windows PowerShell and check:
+   Open Windows PowerShell and verify:
    ```powershell
    ollama --version
    ```
 
 ---
 
-## 2. Recommended Local Models
+## 2. Recommended Primary Model: Qwen3 4B
 
-TidyAI defaults to `qwen3-vl:8b`, which provides fast, structured JSON reasoning for categorization and metadata analysis:
+TidyAI is configured by default to use **`qwen3:4b`**, which offers exceptionally fast, structured JSON reasoning with a minimal memory footprint (~2.5 GB VRAM/RAM):
 
 ```powershell
-# Default recommended model
-ollama pull qwen3-vl:8b
+# Pull the default primary model
+ollama pull qwen3:4b
+```
 
-# Alternative lightweight model
-ollama pull llama3:8b
+### Alternative Models
+You can also use larger or vision-enabled local models if your hardware allows:
+```powershell
+# Larger reasoning model
+ollama pull qwen3:8b
+
+# Vision-language model
+ollama pull qwen3-vl:8b
 
 # Alternative compact model
 ollama pull mistral:7b
@@ -39,15 +46,20 @@ ollama pull mistral:7b
 Copy `.env.example` to `.env` in the repository root and adjust your model if needed:
 
 ```env
-# Backend Binding
+# Backend Binding (Strictly Local)
 HOST=127.0.0.1
 PORT=8765
 
 # Local Ollama Provider (Zero Cloud Calls)
+# Native Windows: http://127.0.0.1:11434 | Docker backend: http://host.docker.internal:11434
 OLLAMA_BASE_URL=http://127.0.0.1:11434
-OLLAMA_MODEL=qwen3-vl:8b
-OLLAMA_TIMEOUT_SECONDS=15.0
+OLLAMA_MODEL=qwen3:4b
+OLLAMA_CONNECT_TIMEOUT_SECONDS=5.0
+OLLAMA_READ_TIMEOUT_SECONDS=90.0
+OLLAMA_TIMEOUT_SECONDS=90.0
 ```
+
+> **Performance Note (`think: false`)**: TidyAI automatically sends `"think": false` in Ollama API calls for thinking-capable models like Qwen3. This bypasses redundant chain-of-thought token generation and accelerates structured JSON proposal generation from ~40–90 seconds down to **~3–5 seconds** on local CPUs/GPUs.
 
 ---
 
@@ -75,7 +87,7 @@ If Ollama is stopped or unreachable:
    ollama serve
    ```
 4. **Test Connection in TidyAI**:
-   Visit the TidyAI dashboard at `http://127.0.0.1:3000` or test via the API:
+   Visit the **API & AI Status** tab in the TidyAI dashboard (`http://127.0.0.1:3000`) and click **"Test Local Inference Ping"**, or test via PowerShell:
    ```powershell
    Invoke-RestMethod -Uri http://127.0.0.1:8765/api/ollama/status
    ```

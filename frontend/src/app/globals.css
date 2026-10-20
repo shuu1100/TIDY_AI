@@ -1,1 +1,31 @@
 @import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-canvas: #f7f6f2;
+    --bg-panel: #ffffff;
+    --bg-sidebar: #f0efe9;
+    --accent: #e5b94f;
+    --accent-hover: #d6a93f;
+    --text-ink: #292a26;
+    --text-secondary: #77786f;
+    --border-subtle: #e5e3dc;
+    --color-success: #136b4d;
+    --color-error: #ba1a1a;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    background-color: #f7f6f2;
+    color: #292a26;
+  }
+
+  /* Tabular figures for numbers, dates, byte sizes down data columns */
+  .font-tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}

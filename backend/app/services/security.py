@@ -39,6 +39,17 @@ DEFAULT_IGNORED_FILES: Set[str] = {
 }
 
 
+# Windows reserved device names (cannot be used as file or folder stems)
+WINDOWS_RESERVED_NAMES: Set[str] = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    *(f"COM{i}" for i in range(1, 10)),
+    *(f"LPT{i}" for i in range(1, 10)),
+}
+
+
 def get_dangerous_system_paths() -> Set[Path]:
     """Return set of normalized paths that must never be registered as scan roots."""
     dangerous: Set[Path] = set()
@@ -85,7 +96,10 @@ def validate_and_canonicalize_root(raw_path: str) -> Path:
         raise SecurityBoundaryError("Root path cannot be empty.")
 
     cleaned = raw_path.strip()
-    
+
+    if "\x00" in cleaned:
+        raise SecurityBoundaryError("Null bytes are not permitted in root paths.")
+
     # Check for UNC path escapes
     if cleaned.startswith(("\\\\", "//")):
         raise SecurityBoundaryError("UNC network paths are not permitted as approved roots.")
@@ -121,10 +135,13 @@ def resolve_and_verify_containment(root_path: Path, subpath: str = "") -> Path:
     """Resolve subpath within root_path, strictly enforcing boundary containment.
 
     Rejects:
+    - Null bytes and control characters
+    - NTFS alternate data streams (':')
     - Path traversal ('..', parent escapes)
     - Absolute subpaths (e.g. '/etc', 'C:\\Windows')
     - Windows drive prefixes in subpath ('D:', 'C:')
     - UNC prefixes ('\\\\', '//')
+    - Windows reserved device names (CON, PRN, AUX, NUL, COM1-9, LPT1-9)
     - Escapes via symlinks or junctions
     """
     root_canonical = root_path.resolve()
@@ -134,6 +151,10 @@ def resolve_and_verify_containment(root_path: Path, subpath: str = "") -> Path:
 
     subpath_clean = subpath.strip()
 
+    # Reject null bytes
+    if "\x00" in subpath_clean:
+        raise SecurityBoundaryError("Null bytes are not permitted in paths.")
+
     # Reject obvious escapes before path math
     if subpath_clean.startswith(("\\\\", "//")):
         raise SecurityBoundaryError("UNC paths are not permitted as subpaths.")
@@ -142,6 +163,21 @@ def resolve_and_verify_containment(root_path: Path, subpath: str = "") -> Path:
 
     if sub_p.is_absolute() or sub_p.drive:
         raise SecurityBoundaryError("Absolute paths or drive specifications are not permitted as subpaths.")
+
+    if subpath_clean.startswith(("/", "\\")):
+        raise SecurityBoundaryError("Leading path separators are not permitted in subpaths.")
+
+    if ":" in subpath_clean:
+        raise SecurityBoundaryError("Colon (':') or alternate data streams are not permitted in subpaths.")
+
+    # Check for reserved Windows device names across all components
+    for part in sub_p.parts:
+        part_clean = part.strip()
+        if part_clean in ("..", "."):
+            continue
+        part_stem = Path(part_clean).stem.upper()
+        if part_stem in WINDOWS_RESERVED_NAMES:
+            raise SecurityBoundaryError(f"Reserved Windows device name '{part_stem}' is forbidden in subpath.")
 
     # Combine and resolve
     combined = root_canonical / subpath_clean

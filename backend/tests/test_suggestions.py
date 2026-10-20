@@ -12,6 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
+from backend.app.config import settings
 from backend.app.schemas import (
     ApprovedRoot,
     OllamaFileSuggestion,
@@ -21,6 +22,7 @@ from backend.app.services.ollama import (
     OllamaConnectionError,
     OllamaJsonParseError,
     OllamaModelNotFoundError,
+    OllamaTimeoutError,
 )
 from backend.app.services.roots_registry import roots_registry
 from backend.app.services.suggestions import (
@@ -325,7 +327,7 @@ async def test_api_suggestions_model_missing_404(tmp_path: Path):
         "backend.app.services.suggestions.ollama_service.generate_structured",
         new_callable=AsyncMock,
     ) as mock_gen:
-        mock_gen.side_effect = OllamaModelNotFoundError("Model 'qwen3-vl:8b' not found")
+        mock_gen.side_effect = OllamaModelNotFoundError(f"Model '{settings.ollama_model}' not found")
 
         response = client.post(
             "/api/suggestions",
@@ -334,6 +336,28 @@ async def test_api_suggestions_model_missing_404(tmp_path: Path):
 
         assert response.status_code == 404
         assert "Requested Ollama model is not installed" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_api_suggestions_timeout_504(tmp_path: Path):
+    """When Ollama request times out, endpoint gracefully returns 504 Gateway Timeout."""
+    f = tmp_path / "data.csv"
+    f.write_text("a,b,c")
+    root = roots_registry.approve_root(str(tmp_path), "Test Timeout")
+
+    with patch(
+        "backend.app.services.suggestions.ollama_service.generate_structured",
+        new_callable=AsyncMock,
+    ) as mock_gen:
+        mock_gen.side_effect = OllamaTimeoutError("Ollama request timed out after 90.0s")
+
+        response = client.post(
+            "/api/suggestions",
+            json={"root_id": root.id},
+        )
+
+        assert response.status_code == 504
+        assert "timed out" in response.json()["detail"].lower()
 
 
 @pytest.mark.asyncio

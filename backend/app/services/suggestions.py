@@ -5,6 +5,7 @@ Strictly read-only: never modifies, renames, moves, or deletes any files.
 Deterministic backend validation: all model outputs are validated and sanitized.
 """
 
+import json
 import os
 import re
 import time
@@ -34,19 +35,10 @@ from backend.app.services.ollama import (
 from backend.app.services.classifier import classify_file
 from backend.app.services.scanner import scan_approved_root
 from backend.app.services.security import (
+    WINDOWS_RESERVED_NAMES,
     SecurityBoundaryError,
     resolve_and_verify_containment,
 )
-
-# Windows reserved device names (cannot be used as file base names)
-WINDOWS_RESERVED_NAMES: Set[str] = {
-    "CON",
-    "PRN",
-    "AUX",
-    "NUL",
-    *(f"COM{i}" for i in range(1, 10)),
-    *(f"LPT{i}" for i in range(1, 10)),
-}
 
 # Regex for invalid characters in Windows filenames (< > : " / \ | ? * and ASCII control characters)
 INVALID_FILENAME_CHARS_REGEX = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
@@ -273,9 +265,10 @@ def build_user_prompt(files: List[FileEntry]) -> str:
             }
         )
 
+    json_payload = json.dumps(files_meta, indent=2)
     return (
         f"Analyze these {len(files_meta)} files and propose organization suggestions:\n"
-        f"```json\n{files_meta}\n```\n\n"
+        f"```json\n{json_payload}\n```\n\n"
         "Return a JSON object with a 'suggestions' array containing an entry for each file."
     )
 
@@ -429,15 +422,17 @@ async def generate_suggestions(
     raw_by_id: Dict[str, OllamaFileSuggestion] = {}
     if batch_output and batch_output.suggestions:
         for item in batch_output.suggestions:
-            raw_by_id[item.file_id] = item
-            raw_by_id[item.current_relative_path] = item
+            if item.file_id:
+                raw_by_id[item.file_id] = item
+            if item.current_relative_path:
+                raw_by_id[item.current_relative_path] = item
 
     seen_in_batch: Set[str] = set()
     ambiguous_count = 0
     collisions_count = 0
 
     for cand in candidate_files:
-        raw_sugg = raw_by_id.get(cand.relative_path)
+        raw_sugg = raw_by_id.get(cand.relative_path) or raw_by_id.get(cand.filename)
 
         rule_info = classify_file(cand.filename, cand.relative_path, cand.size_bytes)
 
@@ -471,13 +466,15 @@ async def generate_suggestions(
             continue
 
         # 3a. Validate proposed filename
+        proposed_fn = raw_sugg.proposed_filename or cand.filename
         fn_valid, clean_filename, fn_err = validate_and_sanitize_filename(
-            raw_sugg.proposed_filename, cand.filename
+            proposed_fn, cand.filename
         )
 
         # 3b. Validate proposed subfolder
+        proposed_sub = raw_sugg.proposed_subfolder or ""
         sub_valid, clean_subfolder, sub_err = validate_and_sanitize_subfolder(
-            raw_sugg.proposed_subfolder, root_path
+            proposed_sub, root_path
         )
 
         is_valid = fn_valid and sub_valid

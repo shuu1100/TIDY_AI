@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"surface-container-highest":"#e4e3dc","secondary-fixed":"#e3e3d8","outline":"#807664","error":"#ba1a1a","outline-variant":"#d1c5b0","on-surface-variant":"#4e4636","secondary":"#5e5f57","surface":"#fbf9f3","on-tertiary-fixed":"#002114","secondary-fixed-dim":"#c7c7bd","surface-bright":"#fbf9f3","secondary-container":"#e3e3d8","on-background":"#1b1c18","tertiary-fixed":"#a2f3cc","on-primary-fixed-variant":"#5a4300","error-container":"#ffdad6","inverse-surface":"#30312d","primary-fixed":"#ffdf9b","on-surface":"#1b1c18","surface-tint":"#785a00","on-tertiary-fixed-variant":"#005138","surface-container":"#efeee7","surface-container-high":"#e9e8e2","tertiary-container":"#7fcfaa","inverse-primary":"#edc156","surface-dim":"#dbdad4","on-primary-container":"#634a00","tertiary":"#136b4d","on-tertiary-container":"#00593e","background":"#fbf9f3","on-error-container":"#93000a","surface-variant":"#e4e3dc","on-tertiary":"#ffffff","on-secondary-container":"#64655c","on-secondary-fixed":"#1b1c16","on-primary":"#ffffff","tertiary-fixed-dim":"#87d7b1","on-secondary":"#ffffff","on-error":"#ffffff","surface-container-lowest":"#ffffff","surface-container-low":"#f5f4ed","on-secondary-fixed-variant":"#464740","primary":"#785a00","inverse-on-surface":"#f2f1ea","on-primary-fixed":"#251a00","primary-fixed-dim":"#edc156","primary-container":"#e5b94f"},"borderRadius":{"DEFAULT":"0.125rem","lg":"0.25rem","xl":"0.5rem","full":"0.75rem"},"spacing":{"space-xl":"1.5rem","space-sm":"0.5rem","space-lg":"1rem","margin-window":"0.5rem","margin":"1rem","space-xs":"0.25rem","gutter":"0.75rem","space-md":"0.75rem","gutter-compact":"0.5rem"},"fontFamily":{"label-lg":["Inter"],"code-tabular":["Inter"],"body-md":["Inter"],"headline-sm":["Inter"],"body-lg":["Inter"],"label-sm":["Inter"],"label-md":["Inter"],"headline-md":["Inter"],"headline-lg":["Inter"],"body-sm":["Inter"]},"fontSize":{"label-lg":["13px",{"lineHeight":"18px","fontWeight":"500"}],"code-tabular":["12px",{"lineHeight":"16px","fontWeight":"400"}],"body-md":["13px",{"lineHeight":"18px","fontWeight":"400"}],"headline-sm":["15px",{"lineHeight":"20px","letterSpacing":"-0.005em","fontWeight":"600"}],"body-lg":["14px",{"lineHeight":"20px","fontWeight":"400"}],"label-sm":["11px",{"lineHeight":"14px","letterSpacing":"0.02em","fontWeight":"600"}],"label-md":["12px",{"lineHeight":"16px","fontWeight":"500"}],"headline-md":["18px",{"lineHeight":"24px","letterSpacing":"-0.01em","fontWeight":"600"}],"headline-lg":["24px",{"lineHeight":"32px","letterSpacing":"-0.015em","fontWeight":"600"}],"body-sm":["12px",{"lineHeight":"16px","fontWeight":"400"}]}}}};</script></head><body class="bg-surface font-body-md text-on-surface select-none"><header class="fixed top-0 left-0 right-0 h-12 bg-surface-container border-b border-outline-variant z-50 flex items-center justify-between px-space-md"><div class="flex items-center gap-space-sm"><div class="w-7 h-7 rounded bg-primary-container flex items-center justify-center text-on-primary-container"><span class="material-symbols-outlined text-[18px]">folder</span></div><span class="font-headline-sm text-headline-sm text-on-surface tracking-tight">TidyAI</span><span class="font-code-tabular text-code-tabular text-on-surface-variant bg-surface-container-high px-space-xs py-[1px] rounded">v1.4.2</span></div><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-xs px-space-sm py-[2px] rounded bg-surface-container-low border border-outline-variant"><span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span><span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Local & Private</span></div><div class="flex items-center gap-space-xs text-on-surface-variant"><span class="material-symbols-outlined text-[16px] text-tertiary">check_circle</span><span class="font-body-sm text-body-sm">Engine Ready</span></div><button class="p-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded transition-colors" title="Refresh indexed tree" type="button"><span class="material-symbols-outlined text-[18px]">refresh</span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></header><aside class="fixed left-0 top-12 bottom-0 w-[220px] bg-surface-container border-r border-outline-variant z-40 flex flex-col justify-between py-space-sm"><nav class="flex flex-col gap-[2px] px-space-xs" data-active-classes="bg-primary-fixed text-on-primary-fixed font-semibold border-l-2 border-primary"><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="overview" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[18px]">grid_view</span><span class="font-label-md text-label-md">Overview</span></div></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="folders" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[18px]">folder_open</span><span class="font-label-md text-label-md">Folders</span></div></a><a aria-current="page" class="flex items-center justify-between px-space-sm py-1.5 rounded transition-colors bg-primary-fixed text-on-primary-fixed font-semibold border-l-2 border-primary" data-path="all-files" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[18px]">description</span><span class="font-label-md text-label-md">All Files</span></div></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="duplicates" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[18px]">content_copy</span><span class="font-label-md text-label-md">Duplicates</span></div></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="ai-suggestions" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[18px] text-primary">auto_fix_high</span><span class="font-label-md text-label-md">AI Suggestions</span></div><span class="px-1.5 py-0.5 rounded-full bg-primary-container text-on-primary-container font-label-sm text-label-sm">18</span></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="review-changes" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[18px]">checklist</span><span class="font-label-md text-label-md">Review Changes</span></div><span class="px-1.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm">12</span></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="history" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[18px]">history</span><span class="font-label-md text-label-md">History</span></div></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="settings-ai-status" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[18px]">tune</span><span class="font-label-md text-label-md">Settings & AI Status</span></div></a></nav><div class="px-space-sm pt-space-xs border-t border-outline-variant flex flex-col gap-[2px]"><div class="flex items-center justify-between text-on-surface-variant font-code-tabular text-code-tabular"><span class="truncate" title="~/Documents">~/Documents</span><span class="font-label-sm text-label-sm text-secondary">RO</span></div><div class="flex items-center gap-space-xs text-on-surface-variant"><span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span><span class="font-label-sm text-label-sm text-secondary">Local Watcher Active</span></div></div></aside><div class="pl-[220px]"><main class="pt-12 min-h-screen bg-surface-container-low p-margin-window"><div class="w-full min-h-[calc(100vh-3.5rem)] bg-surface-container-lowest border border-outline-variant rounded p-space-md"><div class="flex flex-col w-full h-[calc(100vh-4.75rem)] gap-space-sm select-none">
+<!-- Top Control Bar (Clean, Desktop-Grade Ergonomics) -->
+<header class="flex flex-col gap-space-xs bg-surface-container-low rounded-lg p-space-sm shadow-sm shrink-0">
+<!-- Row 1: Location Breadcrumb, Primary Actions & Search -->
+<div class="flex items-center justify-between gap-space-md">
+<!-- Breadcrumb / Scope Selector -->
+<div class="flex items-center gap-space-xs min-w-0">
+<div class="flex items-center gap-1.5 px-space-sm py-1 rounded bg-surface-container-lowest shadow-sm text-on-surface">
+<span class="material-symbols-outlined text-[17px] text-primary" style="font-variation-settings: 'FILL' 1;">folder</span>
+<span class="font-code-tabular text-code-tabular font-semibold tracking-tight text-on-surface">~/Documents</span>
+<span class="font-body-sm text-body-sm text-secondary">/</span>
+<span class="font-code-tabular text-code-tabular font-medium text-on-surface">Work</span>
+<button class="p-0.5 rounded hover:bg-surface-container-high text-secondary transition-colors" title="Switch Directory" type="button">
+<span class="material-symbols-outlined text-[15px]">expand_more</span>
+</button>
+</div>
+<div class="h-4 w-px bg-surface-container-highest"></div>
+<span class="font-code-tabular text-code-tabular text-secondary px-1">
+          3,842 items
+        </span>
+</div>
+<!-- Center Search Field -->
+<div class="relative flex-1 max-w-md">
+<span class="absolute inset-y-0 left-2.5 flex items-center pointer-events-none text-secondary">
+<span class="material-symbols-outlined text-[16px]">search</span>
+</span>
+<input class="w-full pl-8 pr-16 py-1 rounded bg-surface-container-lowest text-on-surface font-body-sm text-body-sm placeholder:text-secondary focus:outline-none focus:bg-surface-container-lowest shadow-sm" id="fileSearchInput" placeholder="Search filename, extension (.pdf), or path..." type="text"/>
+<div class="absolute inset-y-0 right-2 flex items-center pointer-events-none">
+<kbd class="font-code-tabular text-[10px] text-secondary bg-surface-container-high px-1 py-0.5 rounded shadow-sm">Ctrl+F</kbd>
+</div>
+</div>
+<!-- Action Group -->
+<div class="flex items-center gap-space-xs shrink-0">
+<button class="flex items-center gap-1 px-space-sm py-1 rounded bg-surface-container text-secondary opacity-60 cursor-not-allowed font-label-md text-label-md transition-all shadow-sm" disabled="" id="batchActionsBtn" type="button">
+<span class="material-symbols-outlined text-[16px]">rule</span>
+<span>Batch Actions</span>
+<span class="hidden ml-1 px-1.5 py-0.2 rounded-full bg-primary-container text-on-primary-container font-code-tabular text-[10px]" id="selectedCountBadge">0</span>
+</button>
+<button class="flex items-center gap-1 px-space-sm py-1 rounded bg-primary text-on-primary font-label-md text-label-md shadow-sm hover:brightness-105 active:scale-[0.98] transition-all" onclick="triggerRescan(this)" type="button">
+<span class="material-symbols-outlined text-[16px]" id="rescanIcon">sync</span>
+<span>Rescan Folder</span>
+</button>
+</div>
+</div>
+<!-- Row 2: Category Filter Pills & Sort Selector -->
+<div class="flex items-center justify-between gap-space-md pt-1">
+<!-- Category Filter Pills -->
+<div class="flex items-center gap-1 overflow-x-auto py-0.5">
+<button class="category-pill active flex items-center gap-1 px-space-sm py-0.5 rounded-full font-label-sm text-label-sm bg-primary-container text-on-primary-container shadow-sm transition-colors" data-cat="all" type="button">
+<span>All Categories</span>
+<span class="font-code-tabular text-[10px] opacity-75">3,842</span>
+</button>
+<button class="category-pill flex items-center gap-1 px-space-sm py-0.5 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-secondary hover:text-on-surface hover:bg-surface-container shadow-sm transition-colors" data-cat="docs" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span>
+<span>Documents</span>
+<span class="font-code-tabular text-[10px] opacity-75">1,204</span>
+</button>
+<button class="category-pill flex items-center gap-1 px-space-sm py-0.5 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-secondary hover:text-on-surface hover:bg-surface-container shadow-sm transition-colors" data-cat="sheets" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+<span>Spreadsheets</span>
+<span class="font-code-tabular text-[10px] opacity-75">840</span>
+</button>
+<button class="category-pill flex items-center gap-1 px-space-sm py-0.5 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-secondary hover:text-on-surface hover:bg-surface-container shadow-sm transition-colors" data-cat="images" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-surface-tint"></span>
+<span>Images</span>
+<span class="font-code-tabular text-[10px] opacity-75">632</span>
+</button>
+<button class="category-pill flex items-center gap-1 px-space-sm py-0.5 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-secondary hover:text-on-surface hover:bg-surface-container shadow-sm transition-colors" data-cat="code" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+<span>Code & Config</span>
+<span class="font-code-tabular text-[10px] opacity-75">912</span>
+</button>
+<button class="category-pill flex items-center gap-1 px-space-sm py-0.5 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-secondary hover:text-on-surface hover:bg-surface-container shadow-sm transition-colors" data-cat="archives" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+<span>Archives</span>
+<span class="font-code-tabular text-[10px] opacity-75">254</span>
+</button>
+</div>
+<!-- Sorting Options & Compact View Toggle -->
+<div class="flex items-center gap-space-sm shrink-0">
+<div class="flex items-center gap-1 text-secondary">
+<span class="font-label-sm text-label-sm">Sort by:</span>
+<button class="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-surface-container-lowest hover:bg-surface-container text-on-surface font-label-sm text-label-sm shadow-sm transition-colors" type="button">
+<span>Last Modified</span>
+<span class="material-symbols-outlined text-[14px]">arrow_downward</span>
+</button>
+</div>
+<div class="h-3 w-px bg-surface-container-highest"></div>
+<div class="flex items-center bg-surface-container-lowest rounded p-0.5 shadow-sm">
+<button class="p-1 rounded bg-surface-container text-on-surface" title="List View" type="button">
+<span class="material-symbols-outlined text-[15px]">format_list_bulleted</span>
+</button>
+<button class="p-1 rounded text-secondary hover:text-on-surface" title="Grid View" type="button">
+<span class="material-symbols-outlined text-[15px]">grid_view</span>
+</button>
+</div>
+</div>
+</div>
+</header>
+<!-- Hero Element: Desktop File Table Container -->
+<div class="flex-1 min-h-0 bg-surface-container-lowest rounded-lg shadow-sm overflow-hidden flex flex-col">
+<!-- Table Header (Sticky, Calm, Compact) -->
+<div class="grid grid-cols-[38px_32px_minmax(240px,2fr)_minmax(160px,1.2fr)_150px_100px_160px_48px] items-center px-space-sm py-2 bg-surface-container-low text-secondary font-label-sm text-label-sm shrink-0">
+<div class="flex items-center justify-center">
+<input class="w-3.5 h-3.5 rounded accent-primary-container cursor-pointer" id="selectAllCheckbox" title="Select all on this page" type="checkbox"/>
+</div>
+<div></div>
+<div class="flex items-center gap-1 cursor-pointer hover:text-on-surface">
+<span>NAME</span>
+<span class="material-symbols-outlined text-[12px]">unfold_more</span>
+</div>
+<div class="flex items-center gap-1 cursor-pointer hover:text-on-surface">
+<span>RELATIVE PATH</span>
+</div>
+<div class="flex items-center gap-1 cursor-pointer hover:text-on-surface">
+<span>TYPE</span>
+</div>
+<div class="text-right cursor-pointer hover:text-on-surface">
+<span>SIZE</span>
+</div>
+<div class="text-right cursor-pointer hover:text-on-surface flex items-center justify-end gap-1">
+<span>LAST MODIFIED</span>
+<span class="material-symbols-outlined text-[12px] text-primary">arrow_downward</span>
+</div>
+<div class="text-center">
+<span class="material-symbols-outlined text-[14px]">more_horiz</span>
+</div>
+</div>
+<!-- Scrollable Virtualized File List Rows -->
+<div class="flex-1 overflow-y-auto divide-y-0 text-on-surface font-body-md text-body-md" id="fileTableRows">
+<!-- Row 1: PDF Document (Selected State) -->
+<div class="file-row group grid grid-cols-[38px_32px_minmax(240px,2fr)_minmax(160px,1.2fr)_150px_100px_160px_48px] items-center px-space-sm h-10 hover:bg-surface-container-low transition-colors cursor-pointer bg-primary-fixed/20 border-l-2 border-primary" data-filesize="4.2 MB">
+<div class="flex items-center justify-center">
+<input checked="" class="row-checkbox w-3.5 h-3.5 rounded accent-primary cursor-pointer" type="checkbox"/>
+</div>
+<div class="flex items-center justify-center">
+<svg class="w-5 h-5 text-error" fill="currentColor" viewbox="0 0 24 24">
+<path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zm-2.8 9.5c-.3 0-.6-.1-.8-.3-.5-.5-.4-1.6.2-2.8.5-1.1 1.2-2.1 2-2.7.2-.6.4-1.4.5-2.2.1-.8.2-1.4.3-1.8.2-.8.8-1.2 1.5-1.1.6.1.9.6.9 1.3 0 1-.4 2.4-1 3.7.8.5 1.7.9 2.7 1.2.7.2 1.1.7 1.1 1.3 0 .7-.6 1.4-1.4 1.4-.8 0-1.7-.5-2.6-1.3-.8.2-1.7.4-2.5.7-.3.7-.7 1.4-1.1 1.8-.4.5-.8.8-1.2.8z"></path>
+</svg>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-headline-sm text-headline-sm text-[#292A26] truncate block">Q3_2024_Executive_Financial_Summary.pdf</span>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-code-tabular text-code-tabular text-secondary truncate block">Work/Finance/Quarterly/</span>
+</div>
+<div>
+<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-error-container text-on-error-container">PDF Document</span>
+</div>
+<div class="text-right font-code-tabular text-code-tabular font-medium text-on-surface">
+          4.2 MB
+        </div>
+<div class="text-right font-code-tabular text-code-tabular text-secondary">
+          Oct 24, 2024 15:42
+        </div>
+<div class="flex items-center justify-center opacity-70 group-hover:opacity-100">
+<button class="p-1 rounded hover:bg-surface-container text-secondary hover:text-on-surface" title="Row Actions" type="button">
+<span class="material-symbols-outlined text-[16px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Row 2: XLSX Sheet -->
+<div class="file-row group grid grid-cols-[38px_32px_minmax(240px,2fr)_minmax(160px,1.2fr)_150px_100px_160px_48px] items-center px-space-sm h-10 hover:bg-surface-container-low transition-colors cursor-pointer" data-filesize="1.8 MB">
+<div class="flex items-center justify-center">
+<input class="row-checkbox w-3.5 h-3.5 rounded accent-primary cursor-pointer" type="checkbox"/>
+</div>
+<div class="flex items-center justify-center">
+<svg class="w-5 h-5 text-tertiary" fill="currentColor" viewbox="0 0 24 24">
+<path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zm-1.8 10.3l-1.9-3.2-1.9 3.2H6.1l2.8-4.4L6.3 10.5h1.5l1.8 3.1 1.8-3.1h1.5l-2.7 4.3 2.9 4.5h-1.7z"></path>
+</svg>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-headline-sm text-headline-sm text-[#292A26] truncate block">Client_Portfolio_Consolidated_Master.xlsx</span>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-code-tabular text-code-tabular text-secondary truncate block">Work/Auditing/Portfolios/</span>
+</div>
+<div>
+<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-tertiary-container text-on-tertiary-container">Excel Sheet</span>
+</div>
+<div class="text-right font-code-tabular text-code-tabular font-medium text-on-surface">
+          1.8 MB
+        </div>
+<div class="text-right font-code-tabular text-code-tabular text-secondary">
+          Oct 22, 2024 09:12
+        </div>
+<div class="flex items-center justify-center opacity-70 group-hover:opacity-100">
+<button class="p-1 rounded hover:bg-surface-container text-secondary hover:text-on-surface" title="Row Actions" type="button">
+<span class="material-symbols-outlined text-[16px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Row 3: JPEG Image -->
+<div class="file-row group grid grid-cols-[38px_32px_minmax(240px,2fr)_minmax(160px,1.2fr)_150px_100px_160px_48px] items-center px-space-sm h-10 hover:bg-surface-container-low transition-colors cursor-pointer" data-filesize="3.4 MB">
+<div class="flex items-center justify-center">
+<input class="row-checkbox w-3.5 h-3.5 rounded accent-primary cursor-pointer" type="checkbox"/>
+</div>
+<div class="flex items-center justify-center">
+<svg class="w-5 h-5 text-primary" fill="currentColor" viewbox="0 0 24 24">
+<path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"></path>
+</svg>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-headline-sm text-headline-sm text-[#292A26] truncate block">Hardware_Diagram_Architecture_v2.jpg</span>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-code-tabular text-code-tabular text-secondary truncate block">Work/Engineering/Blueprints/</span>
+</div>
+<div>
+<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-primary-container text-on-primary-container">JPEG Image</span>
+</div>
+<div class="text-right font-code-tabular text-code-tabular font-medium text-on-surface">
+          3.4 MB
+        </div>
+<div class="text-right font-code-tabular text-code-tabular text-secondary">
+          Oct 20, 2024 18:24
+        </div>
+<div class="flex items-center justify-center opacity-70 group-hover:opacity-100">
+<button class="p-1 rounded hover:bg-surface-container text-secondary hover:text-on-surface" title="Row Actions" type="button">
+<span class="material-symbols-outlined text-[16px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Row 4: YML Config -->
+<div class="file-row group grid grid-cols-[38px_32px_minmax(240px,2fr)_minmax(160px,1.2fr)_150px_100px_160px_48px] items-center px-space-sm h-10 hover:bg-surface-container-low transition-colors cursor-pointer" data-filesize="14.2 KB">
+<div class="flex items-center justify-center">
+<input class="row-checkbox w-3.5 h-3.5 rounded accent-primary cursor-pointer" type="checkbox"/>
+</div>
+<div class="flex items-center justify-center">
+<svg class="w-5 h-5 text-secondary" fill="currentColor" viewbox="0 0 24 24">
+<path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zm-3.2 4.2l1.6 2.3v3h-1.4v-3L8.3 13.2h1.5zm3.7 0l-1.3 2.1-1.3-2.1h1.4l.6 1.1.6-1.1h1.4z"></path>
+</svg>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-headline-sm text-headline-sm text-[#292A26] truncate block">production_cluster_mesh.yml</span>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-code-tabular text-code-tabular text-secondary truncate block">Work/Infra/Kubernetes/</span>
+</div>
+<div>
+<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-surface-container-high text-on-surface-variant">YAML Config</span>
+</div>
+<div class="text-right font-code-tabular text-code-tabular font-medium text-on-surface">
+          14.2 KB
+        </div>
+<div class="text-right font-code-tabular text-code-tabular text-secondary">
+          Oct 19, 2024 11:05
+        </div>
+<div class="flex items-center justify-center opacity-70 group-hover:opacity-100">
+<button class="p-1 rounded hover:bg-surface-container text-secondary hover:text-on-surface" title="Row Actions" type="button">
+<span class="material-symbols-outlined text-[16px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Row 5: ZIP Archive -->
+<div class="file-row group grid grid-cols-[38px_32px_minmax(240px,2fr)_minmax(160px,1.2fr)_150px_100px_160px_48px] items-center px-space-sm h-10 hover:bg-surface-container-low transition-colors cursor-pointer" data-filesize="48.9 MB">
+<div class="flex items-center justify-center">
+<input class="row-checkbox w-3.5 h-3.5 rounded accent-primary cursor-pointer" type="checkbox"/>
+</div>
+<div class="flex items-center justify-center">
+<svg class="w-5 h-5 text-on-surface-variant" fill="currentColor" viewbox="0 0 24 24">
+<path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zm-3 2h2v2h-2v-2zm0 2h-2v2h2v-2zm0 2h2v2h-2v-2zm-2 2h2v2H8v-2z"></path>
+</svg>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-headline-sm text-headline-sm text-[#292A26] truncate block">Client_Brand_Assets_Raw_Archive.zip</span>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-code-tabular text-code-tabular text-secondary truncate block">Work/Design/Handoff/</span>
+</div>
+<div>
+<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-secondary-fixed text-on-secondary-fixed">Zip Archive</span>
+</div>
+<div class="text-right font-code-tabular text-code-tabular font-medium text-on-surface">
+          48.9 MB
+        </div>
+<div class="text-right font-code-tabular text-code-tabular text-secondary">
+          Oct 18, 2024 16:30
+        </div>
+<div class="flex items-center justify-center opacity-70 group-hover:opacity-100">
+<button class="p-1 rounded hover:bg-surface-container text-secondary hover:text-on-surface" title="Row Actions" type="button">
+<span class="material-symbols-outlined text-[16px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Row 6: Python Script -->
+<div class="file-row group grid grid-cols-[38px_32px_minmax(240px,2fr)_minmax(160px,1.2fr)_150px_100px_160px_48px] items-center px-space-sm h-10 hover:bg-surface-container-low transition-colors cursor-pointer" data-filesize="28.4 KB">
+<div class="flex items-center justify-center">
+<input class="row-checkbox w-3.5 h-3.5 rounded accent-primary cursor-pointer" type="checkbox"/>
+</div>
+<div class="flex items-center justify-center">
+<svg class="w-5 h-5 text-tertiary" fill="currentColor" viewbox="0 0 24 24">
+<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-5l4.5 2.5-4.5 2.5z"></path>
+</svg>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-headline-sm text-headline-sm text-[#292A26] truncate block">batch_organizer_heuristics.py</span>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-code-tabular text-code-tabular text-secondary truncate block">Work/Scripts/Pipeline/</span>
+</div>
+<div>
+<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-tertiary-container text-on-tertiary-container">Python Script</span>
+</div>
+<div class="text-right font-code-tabular text-code-tabular font-medium text-on-surface">
+          28.4 KB
+        </div>
+<div class="text-right font-code-tabular text-code-tabular text-secondary">
+          Oct 16, 2024 14:15
+        </div>
+<div class="flex items-center justify-center opacity-70 group-hover:opacity-100">
+<button class="p-1 rounded hover:bg-surface-container text-secondary hover:text-on-surface" title="Row Actions" type="button">
+<span class="material-symbols-outlined text-[16px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Row 7: DOCX Document -->
+<div class="file-row group grid grid-cols-[38px_32px_minmax(240px,2fr)_minmax(160px,1.2fr)_150px_100px_160px_48px] items-center px-space-sm h-10 hover:bg-surface-container-low transition-colors cursor-pointer" data-filesize="780 KB">
+<div class="flex items-center justify-center">
+<input class="row-checkbox w-3.5 h-3.5 rounded accent-primary cursor-pointer" type="checkbox"/>
+</div>
+<div class="flex items-center justify-center">
+<svg class="w-5 h-5 text-primary" fill="currentColor" viewbox="0 0 24 24">
+<path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zm-5 6h8v1.5H8V15zm0-3h8v1.5H8V12zm0-3h4v1.5H8V9z"></path>
+</svg>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-headline-sm text-headline-sm text-[#292A26] truncate block">Non_Disclosure_Agreement_Mutual_2024.docx</span>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-code-tabular text-code-tabular text-secondary truncate block">Work/Legal/Contracts/</span>
+</div>
+<div>
+<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-primary-fixed text-on-primary-fixed">Word Document</span>
+</div>
+<div class="text-right font-code-tabular text-code-tabular font-medium text-on-surface">
+          780 KB
+        </div>
+<div class="text-right font-code-tabular text-code-tabular text-secondary">
+          Oct 14, 2024 10:48
+        </div>
+<div class="flex items-center justify-center opacity-70 group-hover:opacity-100">
+<button class="p-1 rounded hover:bg-surface-container text-secondary hover:text-on-surface" title="Row Actions" type="button">
+<span class="material-symbols-outlined text-[16px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Row 8: PDF Document -->
+<div class="file-row group grid grid-cols-[38px_32px_minmax(240px,2fr)_minmax(160px,1.2fr)_150px_100px_160px_48px] items-center px-space-sm h-10 hover:bg-surface-container-low transition-colors cursor-pointer" data-filesize="2.1 MB">
+<div class="flex items-center justify-center">
+<input class="row-checkbox w-3.5 h-3.5 rounded accent-primary cursor-pointer" type="checkbox"/>
+</div>
+<div class="flex items-center justify-center">
+<svg class="w-5 h-5 text-error" fill="currentColor" viewbox="0 0 24 24">
+<path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zm-2.8 9.5c-.3 0-.6-.1-.8-.3-.5-.5-.4-1.6.2-2.8.5-1.1 1.2-2.1 2-2.7.2-.6.4-1.4.5-2.2.1-.8.2-1.4.3-1.8.2-.8.8-1.2 1.5-1.1.6.1.9.6.9 1.3 0 1-.4 2.4-1 3.7.8.5 1.7.9 2.7 1.2.7.2 1.1.7 1.1 1.3 0 .7-.6 1.4-1.4 1.4-.8 0-1.7-.5-2.6-1.3-.8.2-1.7.4-2.5.7-.3.7-.7 1.4-1.1 1.8-.4.5-.8.8-1.2.8z"></path>
+</svg>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-headline-sm text-headline-sm text-[#292A26] truncate block">Security_Audit_SOC2_Final_Report.pdf</span>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-code-tabular text-code-tabular text-secondary truncate block">Work/Compliance/Audit/</span>
+</div>
+<div>
+<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-error-container text-on-error-container">PDF Document</span>
+</div>
+<div class="text-right font-code-tabular text-code-tabular font-medium text-on-surface">
+          2.1 MB
+        </div>
+<div class="text-right font-code-tabular text-code-tabular text-secondary">
+          Oct 12, 2024 17:02
+        </div>
+<div class="flex items-center justify-center opacity-70 group-hover:opacity-100">
+<button class="p-1 rounded hover:bg-surface-container text-secondary hover:text-on-surface" title="Row Actions" type="button">
+<span class="material-symbols-outlined text-[16px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Row 9: XLSX Sheet -->
+<div class="file-row group grid grid-cols-[38px_32px_minmax(240px,2fr)_minmax(160px,1.2fr)_150px_100px_160px_48px] items-center px-space-sm h-10 hover:bg-surface-container-low transition-colors cursor-pointer" data-filesize="940 KB">
+<div class="flex items-center justify-center">
+<input class="row-checkbox w-3.5 h-3.5 rounded accent-primary cursor-pointer" type="checkbox"/>
+</div>
+<div class="flex items-center justify-center">
+<svg class="w-5 h-5 text-tertiary" fill="currentColor" viewbox="0 0 24 24">
+<path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zm-1.8 10.3l-1.9-3.2-1.9 3.2H6.1l2.8-4.4L6.3 10.5h1.5l1.8 3.1 1.8-3.1h1.5l-2.7 4.3 2.9 4.5h-1.7z"></path>
+</svg>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-headline-sm text-headline-sm text-[#292A26] truncate block">Annual_Operating_Budget_2025_Forecast.xlsx</span>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-code-tabular text-code-tabular text-secondary truncate block">Work/Finance/Budgets/</span>
+</div>
+<div>
+<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-tertiary-container text-on-tertiary-container">Excel Sheet</span>
+</div>
+<div class="text-right font-code-tabular text-code-tabular font-medium text-on-surface">
+          940 KB
+        </div>
+<div class="text-right font-code-tabular text-code-tabular text-secondary">
+          Oct 10, 2024 11:20
+        </div>
+<div class="flex items-center justify-center opacity-70 group-hover:opacity-100">
+<button class="p-1 rounded hover:bg-surface-container text-secondary hover:text-on-surface" title="Row Actions" type="button">
+<span class="material-symbols-outlined text-[16px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Row 10: JPG Image -->
+<div class="file-row group grid grid-cols-[38px_32px_minmax(240px,2fr)_minmax(160px,1.2fr)_150px_100px_160px_48px] items-center px-space-sm h-10 hover:bg-surface-container-low transition-colors cursor-pointer" data-filesize="5.6 MB">
+<div class="flex items-center justify-center">
+<input class="row-checkbox w-3.5 h-3.5 rounded accent-primary cursor-pointer" type="checkbox"/>
+</div>
+<div class="flex items-center justify-center">
+<svg class="w-5 h-5 text-primary" fill="currentColor" viewbox="0 0 24 24">
+<path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"></path>
+</svg>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-headline-sm text-headline-sm text-[#292A26] truncate block">Offsite_Keynote_Hero_Banner_Final.jpg</span>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-code-tabular text-code-tabular text-secondary truncate block">Work/Marketing/Assets/</span>
+</div>
+<div>
+<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-primary-container text-on-primary-container">JPEG Image</span>
+</div>
+<div class="text-right font-code-tabular text-code-tabular font-medium text-on-surface">
+          5.6 MB
+        </div>
+<div class="text-right font-code-tabular text-code-tabular text-secondary">
+          Oct 08, 2024 13:54
+        </div>
+<div class="flex items-center justify-center opacity-70 group-hover:opacity-100">
+<button class="p-1 rounded hover:bg-surface-container text-secondary hover:text-on-surface" title="Row Actions" type="button">
+<span class="material-symbols-outlined text-[16px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Row 11: YML Config -->
+<div class="file-row group grid grid-cols-[38px_32px_minmax(240px,2fr)_minmax(160px,1.2fr)_150px_100px_160px_48px] items-center px-space-sm h-10 hover:bg-surface-container-low transition-colors cursor-pointer" data-filesize="8.4 KB">
+<div class="flex items-center justify-center">
+<input class="row-checkbox w-3.5 h-3.5 rounded accent-primary cursor-pointer" type="checkbox"/>
+</div>
+<div class="flex items-center justify-center">
+<svg class="w-5 h-5 text-secondary" fill="currentColor" viewbox="0 0 24 24">
+<path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zm-3.2 4.2l1.6 2.3v3h-1.4v-3L8.3 13.2h1.5zm3.7 0l-1.3 2.1-1.3-2.1h1.4l.6 1.1.6-1.1h1.4z"></path>
+</svg>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-headline-sm text-headline-sm text-[#292A26] truncate block">ci_cd_test_runner_matrix.yml</span>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-code-tabular text-code-tabular text-secondary truncate block">Work/Infra/Workflows/</span>
+</div>
+<div>
+<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-surface-container-high text-on-surface-variant">YAML Config</span>
+</div>
+<div class="text-right font-code-tabular text-code-tabular font-medium text-on-surface">
+          8.4 KB
+        </div>
+<div class="text-right font-code-tabular text-code-tabular text-secondary">
+          Oct 05, 2024 08:33
+        </div>
+<div class="flex items-center justify-center opacity-70 group-hover:opacity-100">
+<button class="p-1 rounded hover:bg-surface-container text-secondary hover:text-on-surface" title="Row Actions" type="button">
+<span class="material-symbols-outlined text-[16px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Row 12: Python Script -->
+<div class="file-row group grid grid-cols-[38px_32px_minmax(240px,2fr)_minmax(160px,1.2fr)_150px_100px_160px_48px] items-center px-space-sm h-10 hover:bg-surface-container-low transition-colors cursor-pointer" data-filesize="52.1 KB">
+<div class="flex items-center justify-center">
+<input class="row-checkbox w-3.5 h-3.5 rounded accent-primary cursor-pointer" type="checkbox"/>
+</div>
+<div class="flex items-center justify-center">
+<svg class="w-5 h-5 text-tertiary" fill="currentColor" viewbox="0 0 24 24">
+<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-5l4.5 2.5-4.5 2.5z"></path>
+</svg>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-headline-sm text-headline-sm text-[#292A26] truncate block">embeddings_clustering_pipeline.py</span>
+</div>
+<div class="min-w-0 pr-space-sm">
+<span class="font-code-tabular text-code-tabular text-secondary truncate block">Work/Scripts/ML/</span>
+</div>
+<div>
+<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-tertiary-container text-on-tertiary-container">Python Script</span>
+</div>
+<div class="text-right font-code-tabular text-code-tabular font-medium text-on-surface">
+          52.1 KB
+        </div>
+<div class="text-right font-code-tabular text-code-tabular text-secondary">
+          Oct 02, 2024 19:40
+        </div>
+<div class="flex items-center justify-center opacity-70 group-hover:opacity-100">
+<button class="p-1 rounded hover:bg-surface-container text-secondary hover:text-on-surface" title="Row Actions" type="button">
+<span class="material-symbols-outlined text-[16px]">more_vert</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Status & Pagination Bar (Precise, Professional Desktop Tooling) -->
+<footer class="flex items-center justify-between px-space-sm py-1 bg-surface-container-low rounded-lg text-secondary font-code-tabular text-code-tabular shrink-0 shadow-sm">
+<!-- Selection & Scope Summary -->
+<div class="flex items-center gap-space-md">
+<div class="flex items-center gap-2">
+<span class="text-on-surface font-medium">1–25 of 3,842 files</span>
+<span class="text-secondary opacity-60">•</span>
+<span class="text-primary font-medium" id="selectionSummary">1 file selected (4.2 MB)</span>
+</div>
+<div class="h-3 w-px bg-surface-container-highest"></div>
+<!-- Trust & Indexing Notice -->
+<div class="flex items-center gap-1 text-[11px] text-secondary">
+<span class="material-symbols-outlined text-[14px] text-tertiary">lock</span>
+<span>File indexing is read-only. Local changes require confirmation.</span>
+</div>
+</div>
+<!-- Pagination Controls -->
+<div class="flex items-center gap-space-sm">
+<span class="font-label-sm text-label-sm text-secondary">Page 1 of 154</span>
+<div class="flex items-center gap-1">
+<button class="p-1 rounded bg-surface-container-lowest text-secondary opacity-40 cursor-not-allowed shadow-sm" disabled="" title="Previous Page" type="button">
+<span class="material-symbols-outlined text-[16px]">chevron_left</span>
+</button>
+<button class="p-1 rounded bg-surface-container-lowest text-on-surface hover:bg-surface-container shadow-sm transition-colors" title="Next Page" type="button">
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</button>
+</div>
+</div>
+</footer>
+</div>
+<script>
+  // Desktop Explorer Row Selection and Bulk Action Logic
+  (function initDesktopExplorer() {
+    const tableRows = document.querySelectorAll('.file-row');
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    const batchActionsBtn = document.getElementById('batchActionsBtn');
+    const selectedCountBadge = document.getElementById('selectedCountBadge');
+    const selectionSummary = document.getElementById('selectionSummary');
+    const searchInput = document.getElementById('fileSearchInput');
+    const categoryPills = document.querySelectorAll('.category-pill');
+
+    function updateSelectionState() {
+      let selectedCount = 0;
+      let totalBytesMB = 0;
+
+      tableRows.forEach(row => {
+        const checkbox = row.querySelector('.row-checkbox');
+        if (checkbox && checkbox.checked) {
+          selectedCount++;
+          row.classList.add('bg-primary-fixed/20', 'border-l-2', 'border-primary');
+          const sizeStr = row.getAttribute('data-filesize') || '0 MB';
+          if (sizeStr.includes('MB')) {
+            totalBytesMB += parseFloat(sizeStr);
+          } else if (sizeStr.includes('KB')) {
+            totalBytesMB += parseFloat(sizeStr) / 1024;
+          }
+        } else {
+          row.classList.remove('bg-primary-fixed/20', 'border-l-2', 'border-primary');
+        }
+      });
+
+      if (selectedCount > 0) {
+        batchActionsBtn.removeAttribute('disabled');
+        batchActionsBtn.classList.remove('opacity-60', 'cursor-not-allowed', 'bg-surface-container', 'text-secondary');
+        batchActionsBtn.classList.add('bg-primary-container', 'text-on-primary-container', 'font-medium');
+        selectedCountBadge.classList.remove('hidden');
+        selectedCountBadge.textContent = selectedCount;
+
+        const formattedSize = totalBytesMB >= 1 
+          ? totalBytesMB.toFixed(1) + ' MB' 
+          : (totalBytesMB * 1024).toFixed(0) + ' KB';
+
+        selectionSummary.textContent = `${selectedCount} file${selectedCount > 1 ? 's' : ''} selected (${formattedSize})`;
+        selectAllCheckbox.checked = selectedCount === tableRows.length;
+        selectAllCheckbox.indeterminate = selectedCount > 0 && selectedCount < tableRows.length;
+      } else {
+        batchActionsBtn.setAttribute('disabled', 'true');
+        batchActionsBtn.classList.add('opacity-60', 'cursor-not-allowed', 'bg-surface-container', 'text-secondary');
+        batchActionsBtn.classList.remove('bg-primary-container', 'text-on-primary-container', 'font-medium');
+        selectedCountBadge.classList.add('hidden');
+        selectionSummary.textContent = '0 files selected';
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+      }
+    }
+
+    // Attach row click selection handlers
+    tableRows.forEach(row => {
+      row.addEventListener('click', (e) => {
+        if (e.target.tagName.toLowerCase() === 'button' || e.target.closest('button')) {
+          return;
+        }
+        const checkbox = row.querySelector('.row-checkbox');
+        if (e.target !== checkbox) {
+          checkbox.checked = !checkbox.checked;
+        }
+        updateSelectionState();
+      });
+    });
+
+    if (selectAllCheckbox) {
+      selectAllCheckbox.addEventListener('change', (e) => {
+        const isChecked = e.target.checked;
+        tableRows.forEach(row => {
+          const checkbox = row.querySelector('.row-checkbox');
+          if (checkbox) checkbox.checked = isChecked;
+        });
+        updateSelectionState();
+      });
+    }
+
+    // Category Pill filtering state
+    categoryPills.forEach(pill => {
+      pill.addEventListener('click', () => {
+        categoryPills.forEach(p => {
+          p.classList.remove('bg-primary-container', 'text-on-primary-container', 'active');
+          p.classList.add('bg-surface-container-lowest', 'text-secondary');
+        });
+        pill.classList.remove('bg-surface-container-lowest', 'text-secondary');
+        pill.classList.add('bg-primary-container', 'text-on-primary-container', 'active');
+      });
+    });
+
+    // Simple realtime filtering via search bar
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase().trim();
+        tableRows.forEach(row => {
+          const text = row.textContent.toLowerCase();
+          if (!query || text.includes(query)) {
+            row.style.display = 'grid';
+          } else {
+            row.style.display = 'none';
+          }
+        });
+      });
+    }
+
+    // Initial update
+    updateSelectionState();
+  })();
+
+  function triggerRescan(btn) {
+    const icon = document.getElementById('rescanIcon');
+    if (icon) {
+      icon.classList.add('animate-spin');
+      btn.disabled = true;
+      setTimeout(() => {
+        icon.classList.remove('animate-spin');
+        btn.disabled = false;
+      }, 900);
+    }
+  }
+</script></div></main></div></body></html>

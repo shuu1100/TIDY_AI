@@ -23,10 +23,22 @@ from backend.app.schemas import (
     SuggestionBatchResponse,
     ClassificationBatchRequest,
     ClassificationBatchResponse,
+    DryRunRequest,
+    DryRunResponse,
+    ApplyOperationsRequest,
+    ApplyOperationsResponse,
+    OperationHistoryResponse,
+    UndoResponse,
 )
 from backend.app.services.classifier import classify_files_batch
 from backend.app.services.duplicates import detect_duplicates
 from backend.app.services.suggestions import generate_suggestions
+from backend.app.services.operations import (
+    apply_operation_plan,
+    get_operation_history,
+    simulate_dry_run,
+    undo_operation_batch,
+)
 from backend.app.services.ollama import (
     OllamaConnectionError,
     OllamaError,
@@ -152,19 +164,22 @@ async def test_ollama_inference(req: OllamaGenerateRequest):
             duration_ms=duration_ms,
         )
     except OllamaConnectionError as exc:
+        msg = str(exc)
+        if not msg.lower().startswith("local ollama server is unreachable"):
+            msg = f"Local Ollama server is unreachable: {msg}"
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Local Ollama server is unreachable: {str(exc)}",
+            detail=msg,
         )
     except OllamaModelNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Requested model is not installed: {str(exc)}",
+            detail=f"Requested Ollama model is not installed: {str(exc)}",
         )
     except OllamaTimeoutError as exc:
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail=f"Ollama generation timed out: {str(exc)}",
+            detail=f"Ollama inference timed out: {str(exc)}",
         )
     except OllamaError as exc:
         raise HTTPException(
@@ -348,9 +363,12 @@ async def generate_file_suggestions(req: SuggestionBatchRequest):
             detail=str(exc),
         )
     except OllamaConnectionError as exc:
+        msg = str(exc)
+        if not msg.lower().startswith("local ollama server is unreachable"):
+            msg = f"Local Ollama server is unreachable: {msg}"
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Local Ollama server is unreachable: {str(exc)}",
+            detail=msg,
         )
     except OllamaModelNotFoundError as exc:
         raise HTTPException(
@@ -424,3 +442,166 @@ async def classify_files_endpoint(req: ClassificationBatchRequest):
         )
 
 
+# ==============================================================================
+# Operations & Safe Reversible Execution Endpoints (Phase 6)
+# ==============================================================================
+
+@app.post(
+    "/api/operations/preview",
+    response_model=DryRunResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["Operations"],
+)
+@app.post(
+    "/api/v1/operations/preview",
+    response_model=DryRunResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["Operations"],
+    include_in_schema=False,
+)
+async def preview_operations_endpoint(req: DryRunRequest):
+    """Simulate staged file operations in read-only dry-run mode.
+
+    NEVER moves, renames, deletes files, or creates directories.
+    Simulates collision detection, safety containment checks, and missing file warnings.
+    """
+    approved = roots_registry.get_root(req.root_id)
+    if not approved:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Approved root with id '{req.root_id}' is not registered.",
+        )
+
+    try:
+        return simulate_dry_run(root=approved, operations=req.operations)
+    except SecurityBoundaryError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Dry run simulation error: {str(exc)}",
+        )
+
+
+@app.post(
+    "/api/operations/apply",
+    response_model=ApplyOperationsResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["Operations"],
+)
+@app.post(
+    "/api/v1/operations/apply",
+    response_model=ApplyOperationsResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["Operations"],
+    include_in_schema=False,
+)
+async def apply_operations_endpoint(req: ApplyOperationsRequest):
+    """Execute confirmed file operations on disk within approved root.
+
+    ZERO UNCONFIRMED MUTATIONS: confirmed=True is strictly required.
+    Performs pre-flight atomic revalidation immediately prior to every move.
+    Fails closed on collisions (zero silent overwrites).
+    Records batch and items in SQLite audit ledger.
+    """
+    if not req.confirmed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Explicit user confirmation (confirmed: true) is strictly required to execute operations.",
+        )
+
+    approved = roots_registry.get_root(req.root_id)
+    if not approved:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Approved root with id '{req.root_id}' is not registered.",
+        )
+
+    try:
+        return apply_operation_plan(root=approved, operations=req.operations, confirmed=req.confirmed)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+    except SecurityBoundaryError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Operation application error: {str(exc)}",
+        )
+
+
+@app.post(
+    "/api/operations/{batch_id}/undo",
+    response_model=UndoResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["Operations"],
+)
+@app.post(
+    "/api/v1/operations/{batch_id}/undo",
+    response_model=UndoResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["Operations"],
+    include_in_schema=False,
+)
+async def undo_batch_endpoint(batch_id: str):
+    """Safely undo a previously executed operation batch.
+
+    Reverts files back to their original recorded locations.
+    Fails closed if the original path is currently occupied or if the target file has moved.
+    """
+    try:
+        return undo_operation_batch(batch_id=batch_id)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        )
+    except (ValueError, FileNotFoundError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Undo execution error: {str(exc)}",
+        )
+
+
+@app.get(
+    "/api/operations/history",
+    response_model=OperationHistoryResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["Operations"],
+)
+@app.get(
+    "/api/v1/operations/history",
+    response_model=OperationHistoryResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["Operations"],
+    include_in_schema=False,
+)
+async def get_history_endpoint(root_id: str = "", limit: int = 50):
+    """Retrieve historical operation batches and their items from SQLite ledger."""
+    root_path = ""
+    if root_id:
+        approved = roots_registry.get_root(root_id)
+        if approved:
+            root_path = approved.canonical_path
+
+    try:
+        return get_operation_history(root_path=root_path, limit=limit)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching operations history: {str(exc)}",
+        )

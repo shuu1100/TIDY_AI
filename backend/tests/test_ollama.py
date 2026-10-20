@@ -58,14 +58,14 @@ def test_clean_markdown_json():
 @pytest.mark.asyncio
 async def test_ollama_status_healthy():
     """Server is reachable and configured model is installed."""
-    service = OllamaService(model_name="qwen3-vl:8b")
+    service = OllamaService(model_name="qwen3:4b")
 
     mock_version = MagicMock(status_code=200)
     mock_version.json.return_value = {"version": "0.40.6"}
 
     mock_tags = MagicMock(status_code=200)
     mock_tags.json.return_value = {
-        "models": [{"name": "qwen3-vl:8b"}, {"name": "mistral:latest"}]
+        "models": [{"name": "qwen3:4b"}, {"name": "mistral:latest"}]
     }
 
     with patch("httpx.AsyncClient.get", side_effect=[mock_version, mock_tags]):
@@ -75,14 +75,14 @@ async def test_ollama_status_healthy():
     assert status_res.reachable is True
     assert status_res.model_installed is True
     assert status_res.version == "0.40.6"
-    assert "qwen3-vl:8b" in status_res.available_models
+    assert "qwen3:4b" in status_res.available_models
     assert status_res.install_command is None
 
 
 @pytest.mark.asyncio
 async def test_ollama_status_server_unreachable():
     """Server cannot be reached on 127.0.0.1:11434."""
-    service = OllamaService(model_name="qwen3-vl:8b")
+    service = OllamaService(model_name="qwen3:4b")
 
     with patch("httpx.AsyncClient.get", side_effect=httpx.ConnectError("Connection refused")):
         status_res = await service.get_status()
@@ -95,9 +95,24 @@ async def test_ollama_status_server_unreachable():
 
 
 @pytest.mark.asyncio
+async def test_ollama_status_timeout():
+    """Server connection times out during version health check."""
+    service = OllamaService(model_name="qwen3:4b")
+
+    with patch("httpx.AsyncClient.get", side_effect=httpx.TimeoutException("Connect timed out")):
+        status_res = await service.get_status()
+
+    assert status_res.state == OllamaHealthState.SERVER_UNREACHABLE
+    assert status_res.reachable is False
+    assert status_res.model_installed is False
+    assert status_res.install_command == "ollama serve"
+    assert "timed out" in status_res.message.lower()
+
+
+@pytest.mark.asyncio
 async def test_ollama_status_model_missing():
     """Server is running, but configured model is not downloaded."""
-    service = OllamaService(model_name="qwen3-vl:8b")
+    service = OllamaService(model_name="qwen3:4b")
 
     mock_version = MagicMock(status_code=200)
     mock_version.json.return_value = {"version": "0.40.6"}
@@ -113,8 +128,30 @@ async def test_ollama_status_model_missing():
     assert status_res.state == OllamaHealthState.MODEL_MISSING
     assert status_res.reachable is True
     assert status_res.model_installed is False
-    assert status_res.install_command == "ollama pull qwen3-vl:8b"
+    assert status_res.install_command == "ollama pull qwen3:4b"
     assert "not installed" in status_res.message.lower()
+
+
+@pytest.mark.asyncio
+async def test_ollama_status_prefix_safety_rejects_different_model():
+    """Having qwen3-vl:8b installed does NOT satisfy requirement for qwen3:4b."""
+    service = OllamaService(model_name="qwen3:4b")
+
+    mock_version = MagicMock(status_code=200)
+    mock_version.json.return_value = {"version": "0.40.6"}
+
+    mock_tags = MagicMock(status_code=200)
+    mock_tags.json.return_value = {
+        "models": [{"name": "qwen3-vl:8b"}]
+    }
+
+    with patch("httpx.AsyncClient.get", side_effect=[mock_version, mock_tags]):
+        status_res = await service.get_status()
+
+    assert status_res.state == OllamaHealthState.MODEL_MISSING
+    assert status_res.reachable is True
+    assert status_res.model_installed is False
+    assert status_res.install_command == "ollama pull qwen3:4b"
 
 
 # ==============================================================================
@@ -305,3 +342,32 @@ def test_api_ollama_test_endpoint_offline_503(client):
         )
     assert resp.status_code == 503
     assert "unreachable" in resp.json()["detail"].lower()
+
+
+def test_api_ollama_test_endpoint_timeout_504(client):
+    """POST /api/ollama/test returns 504 when inference times out."""
+    with patch(
+        "backend.app.services.ollama.ollama_service.generate_completion",
+        side_effect=OllamaTimeoutError("Request timed out after 90.0s"),
+    ):
+        resp = client.post(
+            "/api/ollama/test",
+            json={"prompt": "Ping Ollama"},
+        )
+    assert resp.status_code == 504
+    assert "timed out" in resp.json()["detail"].lower()
+
+
+def test_api_ollama_test_endpoint_missing_model_404(client):
+    """POST /api/ollama/test returns 404 when requested model is not installed."""
+    with patch(
+        "backend.app.services.ollama.ollama_service.generate_completion",
+        side_effect=OllamaModelNotFoundError("Model 'qwen3:4b' not installed"),
+    ):
+        resp = client.post(
+            "/api/ollama/test",
+            json={"prompt": "Ping Ollama"},
+        )
+    assert resp.status_code == 404
+    assert "not installed" in resp.json()["detail"].lower()
+
